@@ -76,7 +76,7 @@ export function DevToolsIntegration() {
       status: 'active',
       badge: '🆕 NUEVO'
     },
-    
+
     // ✅ VERIFICACIÓN & TESTING
     {
       id: 'verifier',
@@ -103,7 +103,7 @@ export function DevToolsIntegration() {
       category: 'verification',
       status: 'active'
     },
-    
+
     // 🛠️ MANTENIMIENTO & ADMIN
     {
       id: 'rlskiller',
@@ -131,7 +131,7 @@ export function DevToolsIntegration() {
       status: 'active',
       badge: '⚠️ PELIGRO'
     },
-    
+
     // 🔄 SINCRONIZACIÓN
     {
       id: 'githubsync',
@@ -358,7 +358,7 @@ export function DevToolsIntegration() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 text-white">
-        <h1 className="text-3xl font-bold mb-2">Herramientas de Desarrollo</h1>
+        <h1 className="text-3xl font-bold mb-2">Herramientas de Desarrollo (v21)</h1>
         <p className="text-purple-100">Gestión avanzada de base de datos y sincronización</p>
       </div>
 
@@ -381,28 +381,26 @@ export function DevToolsIntegration() {
                     Botón Flotante de DevTools
                   </h3>
                   <p className="text-sm text-indigo-200">
-                    {floatingButtonVisible 
-                      ? '✅ El botón flotante está visible en la esquina inferior izquierda' 
+                    {floatingButtonVisible
+                      ? '✅ El botón flotante está visible en la esquina inferior izquierda'
                       : '❌ El botón flotante está oculto (recomendado para producción)'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={toggleFloatingButton}
-                className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors shadow-lg ${
-                  floatingButtonVisible ? 'bg-green-600' : 'bg-slate-600'
-                }`}
+                className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors shadow-lg ${floatingButtonVisible ? 'bg-green-600' : 'bg-slate-600'
+                  }`}
               >
                 <span
-                  className={`inline-block h-8 w-8 transform rounded-full bg-white transition-transform shadow-md ${
-                    floatingButtonVisible ? 'translate-x-11' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-8 w-8 transform rounded-full bg-white transition-transform shadow-md ${floatingButtonVisible ? 'translate-x-11' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
             <div className="mt-4 pt-4 border-t border-indigo-700">
               <p className="text-xs text-indigo-300">
-                💡 El botón flotante está <strong>oculto por defecto</strong> al cargar el sitio. 
+                💡 El botón flotante está <strong>oculto por defecto</strong> al cargar el sitio.
                 Actívalo aquí cuando necesites acceso rápido a las herramientas desde cualquier página.
               </p>
             </div>
@@ -419,37 +417,33 @@ export function DevToolsIntegration() {
                 const Icon = category.icon;
                 const isActive = activeCategory === category.id;
                 const isArchived = category.id === 'archived';
-                
+
                 return (
                   <button
                     key={category.id}
                     onClick={() => setActiveCategory(category.id)}
-                    className={`p-4 rounded-xl border-2 transition-all duration-300 ${
-                      isActive
+                    className={`p-4 rounded-xl border-2 transition-all duration-300 ${isActive
                         ? isArchived
                           ? 'bg-gray-900/50 border-gray-600 shadow-lg'
                           : 'bg-indigo-900/50 border-indigo-600 shadow-lg'
                         : 'bg-slate-800 border-slate-700 hover:border-slate-600 hover:shadow-md'
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <Icon className={`w-6 h-6 ${
-                        isActive
+                      <Icon className={`w-6 h-6 ${isActive
                           ? isArchived ? 'text-gray-400' : 'text-indigo-400'
                           : 'text-slate-400'
-                      }`} />
-                      <span className={`text-sm font-semibold ${
-                        isActive
+                        }`} />
+                      <span className={`text-sm font-semibold ${isActive
                           ? isArchived ? 'text-gray-300' : 'text-indigo-300'
                           : 'text-slate-300'
-                      }`}>
+                        }`}>
                         {category.name}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        isActive
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
                           ? isArchived ? 'bg-gray-800 text-gray-300' : 'bg-indigo-800 text-indigo-200'
                           : 'bg-slate-700 text-slate-400'
-                      }`}>
+                        }`}>
                         {category.count}
                       </span>
                     </div>
@@ -467,7 +461,7 @@ export function DevToolsIntegration() {
                 <div>
                   <h3 className="text-xl font-bold text-yellow-300 mb-2">📦 Herramientas Archivadas</h3>
                   <p className="text-yellow-200 mb-2">
-                    Estas herramientas han sido reemplazadas por el <strong>Ultimate SQL Executor</strong> que incluye 
+                    Estas herramientas han sido reemplazadas por el <strong>Ultimate SQL Executor</strong> que incluye
                     todas sus funcionalidades en un solo lugar.
                   </p>
                   <p className="text-sm text-yellow-300">
@@ -495,7 +489,7 @@ export function DevToolsIntegration() {
                 {filteredTools.length} {filteredTools.length === 1 ? 'herramienta' : 'herramientas'}
               </span>
             </div>
-            
+
             {filteredTools.length === 0 ? (
               <div className="bg-slate-900 border-2 border-slate-700 rounded-xl p-12 text-center">
                 <p className="text-slate-400 text-lg">No hay herramientas en esta categoría</p>
@@ -505,16 +499,15 @@ export function DevToolsIntegration() {
                 {filteredTools.map((tool) => {
                   const Icon = tool.icon;
                   const isArchived = tool.status === 'archived';
-                  
+
                   return (
                     <button
                       key={tool.id}
                       onClick={() => setActiveView(tool.id)}
-                      className={`group p-6 ${tool.bgColor} border-2 ${tool.borderColor} rounded-2xl transition-all duration-300 text-left relative ${
-                        isArchived 
-                          ? 'opacity-60 hover:opacity-80' 
+                      className={`group p-6 ${tool.bgColor} border-2 ${tool.borderColor} rounded-2xl transition-all duration-300 text-left relative ${isArchived
+                          ? 'opacity-60 hover:opacity-80'
                           : 'hover:shadow-xl hover:scale-105'
-                      }`}
+                        }`}
                     >
                       {tool.badge && (
                         <div className="absolute -top-2 -right-2 px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-bold rounded-lg shadow-lg">
@@ -522,9 +515,8 @@ export function DevToolsIntegration() {
                         </div>
                       )}
                       <div className="flex items-start gap-4">
-                        <div className={`p-3 bg-gradient-to-br ${tool.color} rounded-xl shadow-lg ${
-                          isArchived ? '' : 'group-hover:scale-110'
-                        } transition-transform`}>
+                        <div className={`p-3 bg-gradient-to-br ${tool.color} rounded-xl shadow-lg ${isArchived ? '' : 'group-hover:scale-110'
+                          } transition-transform`}>
                           <Icon className="w-8 h-8 text-white" />
                         </div>
                         <div className="flex-1">
@@ -608,7 +600,7 @@ function SQLExecutor() {
 
     try {
       const { supabase } = await import('../../../lib/supabase');
-      
+
       // Execute raw SQL
       const { data, error: sqlError } = await supabase.rpc('exec_sql', { query: sql });
 
@@ -1008,25 +1000,22 @@ END $$;`
       <div className="flex items-center gap-4">
         <button
           onClick={() => setActiveCategory('examples')}
-          className={`px-4 py-2 rounded-lg font-semibold ${
-            activeCategory === 'examples' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-          }`}
+          className={`px-4 py-2 rounded-lg font-semibold ${activeCategory === 'examples' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+            }`}
         >
           Ejemplos
         </button>
         <button
           onClick={() => setActiveCategory('setup')}
-          className={`px-4 py-2 rounded-lg font-semibold ${
-            activeCategory === 'setup' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-          }`}
+          className={`px-4 py-2 rounded-lg font-semibold ${activeCategory === 'setup' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+            }`}
         >
           Configuración
         </button>
         <button
           onClick={() => setActiveCategory('custom')}
-          className={`px-4 py-2 rounded-lg font-semibold ${
-            activeCategory === 'custom' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-          }`}
+          className={`px-4 py-2 rounded-lg font-semibold ${activeCategory === 'custom' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+            }`}
         >
           Personalizado
         </button>

@@ -25,21 +25,21 @@ export function FileManager() {
   const [storageFiles, setStorageFiles] = useState<any[]>([]);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [pushToGitHubEnabled, setPushToGitHubEnabled] = useState(true);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // GitHub Configuration
   const GITHUB_CONFIG = {
     owner: 'aprendeineamx-max',
     repo: 'Unsitiodesdefigma',
-    token: 'ghp_qlWHUM9o1rsVWaT1V23TdBiK',
+    token: '', // Token eliminado por seguridad. Configurar en UI o .env
     branch: 'main'
   };
 
   // ==============================================
   // UTILITY: SANITIZE FILENAMES FOR SUPABASE
   // ==============================================
-  
+
   /**
    * Sanitiza nombres de archivos para Supabase Storage
    * 
@@ -59,7 +59,7 @@ export function FileManager() {
     const lastDotIndex = filename.lastIndexOf('.');
     const name = lastDotIndex > 0 ? filename.substring(0, lastDotIndex) : filename;
     const extension = lastDotIndex > 0 ? filename.substring(lastDotIndex) : '';
-    
+
     // Sanitizar el nombre
     const sanitizedName = name
       .normalize('NFD') // Descomponer caracteres acentuados
@@ -67,17 +67,17 @@ export function FileManager() {
       .replace(/[^a-zA-Z0-9._-]/g, '_') // Reemplazar espacios y especiales con _
       .replace(/_+/g, '_') // Colapsar múltiples _ en uno solo
       .replace(/^_|_$/g, ''); // Quitar _ al inicio/final
-    
+
     // Sanitizar extensión (quitar espacios)
     const sanitizedExtension = extension.replace(/\s+/g, '');
-    
+
     return sanitizedName + sanitizedExtension;
   };
 
   // ==============================================
   // UTILITY: PUSH TO GITHUB REPOSITORY
   // ==============================================
-  
+
   /**
    * Pushea un archivo a GitHub Repository
    * 
@@ -118,7 +118,7 @@ export function FileManager() {
       const base64Content = btoa(unescape(encodeURIComponent(content)));
 
       // Step 3: Crear/Actualizar archivo
-      const commitMessage = sha 
+      const commitMessage = sha
         ? `📝 Update ${filename} via FileManager`
         : `📄 Add ${filename} via FileManager`;
 
@@ -162,7 +162,7 @@ export function FileManager() {
   // ==============================================
   // HERRAMIENTA 1: UPLOAD LOCAL FILES
   // ==============================================
-  
+
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -216,7 +216,7 @@ export function FileManager() {
         // Step 2: Push to GitHub (si está habilitado)
         if (pushToGitHubEnabled && (file.type === 'text/markdown' || file.name.endsWith('.md'))) {
           toast.info(`🔄 Pusheando ${sanitizedFilename} a GitHub...`);
-          
+
           // Leer contenido del archivo
           const fileContent = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -227,7 +227,7 @@ export function FileManager() {
 
           // Push a GitHub
           const githubResult = await pushToGitHub(sanitizedFilename, fileContent);
-          
+
           if (githubResult.success) {
             toast.success(`✅ ${sanitizedFilename} pusheado a GitHub`);
           } else {
@@ -253,7 +253,7 @@ export function FileManager() {
       }
 
       setUploadedFiles(prev => [...prev, ...uploaded]);
-      
+
       // Toast final de resumen
       if (pushToGitHubEnabled) {
         toast.success(`🎉 ${uploaded.length} archivos subidos a Storage + GitHub`);
@@ -308,13 +308,13 @@ export function FileManager() {
       }
 
       const files = await listResponse.json();
-      
+
       if (!Array.isArray(files)) {
         throw new Error('Path no es un directorio');
       }
 
       // Filtrar solo .md files
-      const mdFiles = files.filter((f: any) => 
+      const mdFiles = files.filter((f: any) =>
         f.type === 'file' && f.name.endsWith('.md')
       );
 
@@ -402,7 +402,7 @@ export function FileManager() {
       }
 
       const content = await response.text();
-      
+
       // Extraer filename de URL
       const urlParts = downloadUrl.split('/');
       const filename = urlParts[urlParts.length - 1] || 'downloaded-file.md';
@@ -498,7 +498,7 @@ export function FileManager() {
   const downloadStorageFile = async (filename: string) => {
     try {
       const filePath = `${targetFolder}/${filename}`;
-      
+
       const { data, error } = await supabaseAdmin.storage
         .from('documentation')
         .download(filePath);
@@ -581,11 +581,10 @@ export function FileManager() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
-                activeTab === tab.id
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${activeTab === tab.id
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                   : 'text-slate-300 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Icon className="w-5 h-5" />
               <span className="hidden md:inline">{tab.label}</span>
@@ -642,17 +641,16 @@ export function FileManager() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    {pushToGitHubEnabled 
+                    {pushToGitHubEnabled
                       ? '✅ Los archivos .md se subirán a Storage + GitHub automáticamente'
                       : '⚠️ Los archivos solo se subirán a Supabase Storage'
                     }
                   </p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                  pushToGitHubEnabled 
-                    ? 'bg-green-600 text-white' 
+                <div className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${pushToGitHubEnabled
+                    ? 'bg-green-600 text-white'
                     : 'bg-slate-700 text-slate-400'
-                }`}>
+                  }`}>
                   {pushToGitHubEnabled ? 'ON' : 'OFF'}
                 </div>
               </label>
@@ -799,7 +797,7 @@ export function FileManager() {
                 <span>{syncProgress.current} / {syncProgress.total}</span>
               </div>
               <div className="w-full bg-slate-700 rounded-full h-2.5">
-                <div 
+                <div
                   className="bg-gradient-to-r from-blue-500 to-purple-500 h-2.5 rounded-full transition-all duration-300"
                   style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
                 ></div>
@@ -898,7 +896,7 @@ export function FileManager() {
                       <div>
                         <p className="text-white text-sm font-semibold">{file.name}</p>
                         <p className="text-xs text-slate-400">
-                          {(file.metadata?.size / 1024).toFixed(1)} KB • 
+                          {(file.metadata?.size / 1024).toFixed(1)} KB •
                           {new Date(file.created_at).toLocaleDateString()}
                         </p>
                       </div>
