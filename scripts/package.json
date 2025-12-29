@@ -1,0 +1,19 @@
+{
+    "name": "figma-extraction-server",
+    "version": "1.0.0",
+    "description": "Servidor local para almacenar contenido extraído de Figma en SQLite",
+    "main": "figma-extraction-server.js",
+    "scripts": {
+        "start": "node figma-extraction-server.js",
+        "dev": "node --watch figma-extraction-server.js",
+        "process-zip": "node process-zip-local.js"
+    },
+    "dependencies": {
+        "adm-zip": "^0.5.16",
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "sql.js": "^1.8.0"
+    },
+    "author": "Antigravity Agent",
+    "license": "MIT"
+}
