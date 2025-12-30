@@ -256,22 +256,122 @@ function App() {
 
             {/* Grid */}
             <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
-                    <Monitor className="w-5 h-5 text-indigo-500" />
-                    Active Environments
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Monitor className="w-5 h-5 text-indigo-500" />
+                        Active Environments
+                    </h2>
+
+                    {/* View Selector */}
+                    <div className="flex items-center gap-3">
+                        {selectedZips.length > 0 ? (
+                            <div className="flex gap-2">
+                                <button onClick={handleSelectAll} className="text-xs text-indigo-500 hover:underline px-2 py-1">
+                                    Select All ({filteredVersions.length})
+                                </button>
+                                <button onClick={handleDeselectAll} className="text-xs text-red-500 hover:underline px-2 py-1">
+                                    Deselect ({selectedZips.length})
+                                </button>
+                            </div>
+                        ) : (
+                            <button onClick={handleSelectAll} className="text-xs text-gray-500 hover:text-indigo-500 hover:underline px-2 py-1">
+                                Select All
+                            </button>
+                        )}
+
+                        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
+                            <button
+                                onClick={() => setViewMode('grid-small')}
+                                className={cn(
+                                    "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                    viewMode === 'grid-small' ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                )}
+                                title="Small Grid (4-5 columns)"
+                            >
+                                <Grid3x3 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('grid-medium')}
+                                className={cn(
+                                    "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                    viewMode === 'grid-medium' ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                )}
+                                title="Medium Grid (3 columns)"
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('grid-large')}
+                                className={cn(
+                                    "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                    viewMode === 'grid-large' ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                )}
+                                title="Large Grid (2 columns)"
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={cn(
+                                    "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                    viewMode === 'list' ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                )}
+                                title="List View"
+                            >
+                                <List className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list-detailed')}
+                                className={cn(
+                                    "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                    viewMode === 'list-detailed' ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                )}
+                                title="Detailed List"
+                            >
+                                <Table className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className={cn(
+                    "grid gap-6",
+                    viewMode === 'grid-small' ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" :
+                        viewMode === 'grid-medium' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" :
+                            viewMode === 'grid-large' ? "grid-cols-1 lg:grid-cols-2" :
+                                viewMode === 'list' || viewMode === 'list-detailed' ? "grid-cols-1" :
+                                    "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                )}>
                     {filteredVersions.map((v) => (
                         <div
                             key={v.id}
-                            onClick={() => { setSelectedVersion(v.id); setCurrentPage('logs'); }}
+                            onClick={(e) => {
+                                if (e.ctrlKey || e.metaKey) {
+                                    e.stopPropagation();
+                                    handleZipSelect(v.id, true);
+                                } else if (!selectedZips.includes(v.id)) {
+                                    setSelectedVersion(v.id);
+                                    setCurrentPage('logs');
+                                }
+                            }}
                             className={cn(
                                 "p-6 rounded-xl border transition-all cursor-pointer relative overflow-hidden group hover:shadow-xl",
                                 v.status === 'running'
                                     ? "bg-slate-50 dark:bg-slate-800/80 border-indigo-200 dark:border-indigo-500/30"
-                                    : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800"
+                                    : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800",
+                                selectedZips.includes(v.id) ? "ring-4 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900" : ""
                             )}
                         >
+                            {/* Selection Checkbox */}
+                            {selectedZips.includes(v.id) && (
+                                <div className="absolute top-3 left-3 z-10">
+                                    <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+
                             {v.status === 'running' && (
                                 <div className="absolute top-3 right-3">
                                     <span className="relative flex h-3 w-3">
@@ -561,6 +661,39 @@ function App() {
                     ))}
                 </div>
             </div>
+
+            {/* Batch Toolbar */}
+            {selectedZips.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                    <span className="font-bold text-sm">{selectedZips.length} ZIP{selectedZips.length > 1 ? 's' : ''} seleccionado{selectedZips.length > 1 ? 's' : ''}</span>
+                    <div className="w-px h-6 bg-white/30"></div>
+                    <button
+                        onClick={handleBatchArchive}
+                        className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg font-semibold text-sm transition-colors shadow-lg"
+                    >
+                        📁 Archive
+                    </button>
+                    <button
+                        onClick={handleBatchTrash}
+                        className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-lg font-semibold text-sm transition-colors shadow-lg"
+                    >
+                        🗑️ Trash
+                    </button>
+                    <button
+                        onClick={handleBatchDelete}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-400 rounded-lg font-semibold text-sm transition-colors shadow-lg"
+                    >
+                        ❌ Delete
+                    </button>
+                    <div className="w-px h-6 bg-white/30"></div>
+                    <button
+                        onClick={handleDeselectAll}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-semibold text-sm transition-colors"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
         </div >
     );
 
