@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, Monitor, Terminal, Upload, Settings,
     Shield, Menu, ChevronLeft, Sun, Moon, Search,
-    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch
+    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch, Cloud
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -12,6 +12,7 @@ import { ResourceMonitor } from './components/ResourceMonitor';
 import { FileExplorer } from './components/FileExplorer';
 import { ConsoleLogs } from './components/ConsoleLogs';
 import { GitControl } from './components/GitControl';
+import { CloudBackup } from './components/CloudBackup';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -49,7 +50,7 @@ interface ProcessStats {
     };
 }
 
-type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git';
+type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud';
 
 // ==========================================
 // APP COMPONENT
@@ -72,6 +73,11 @@ function App() {
 
     // Initialize Socket
     useEffect(() => {
+        // Initial load
+        axios.get(`${API_URL}/versions`)
+            .then(res => setVersions(res.data))
+            .catch(err => console.error('Failed to load versions:', err));
+
         socketRef.current = io(SOCKET_URL);
         socketRef.current.on('state-update', (data: Version[]) => setVersions(data));
         socketRef.current.on('stats-update', (data: ProcessStats) => setStats(data));
@@ -211,33 +217,22 @@ function App() {
                                             <Play className="w-3 h-3" /> Start
                                         </button>
                                     ) : (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleStop(v.id); }}
-                                            className="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-md font-semibold text-sm transition-colors flex items-center gap-1"
+                                        <a
+                                            href={`http://localhost:${v.port}`}
+                                            target="_blank"
+                                            className="block w-full text-center py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                            onClick={(e) => e.stopPropagation()}
                                         >
-                                            <Square className="w-3 h-3 fill-current" /> Stop
-                                        </button>
+                                            Open Browser <ExternalLink className="w-4 h-4" />
+                                        </a>
                                     )}
                                 </div>
                             </div>
-
-                            {v.status === 'running' && (
-                                <div className="mt-4">
-                                    <a
-                                        href={`http://localhost:${v.port}`}
-                                        target="_blank"
-                                        className="block w-full text-center py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        Open Browser <ExternalLink className="w-4 h-4" />
-                                    </a>
-                                </div>
-                            )}
                         </div>
                     ))}
                 </div>
             </div>
-        </div>
+        </div >
     );
 
     // Menu Items Config
@@ -341,11 +336,11 @@ function App() {
                     <div className="flex items-center justify-between mb-6 animate-in slide-in-from-left-2 duration-300 shrink-0">
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                             {currentPage === 'dashboard' ? 'Overview' :
-                                (currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git') ? 'Environment Details' : 'Settings'}
+                                (currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git' || currentPage === 'cloud') ? 'Environment Details' : 'Settings'}
                         </h1>
 
                         {/* Environment Tabs */}
-                        {(currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git') && (
+                        {(currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git' || currentPage === 'cloud') && (
                             <div className="flex p-1 bg-gray-100 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
                                 <button
                                     onClick={() => setCurrentPage('logs')}
@@ -383,6 +378,18 @@ function App() {
                                     <GitBranch className="w-4 h-4" />
                                     Source Control
                                 </button>
+                                <button
+                                    onClick={() => setCurrentPage('cloud')}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+                                        currentPage === 'cloud'
+                                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                    )}
+                                >
+                                    <Cloud className="w-4 h-4" />
+                                    Backup
+                                </button>
                             </div>
                         )}
                     </div>
@@ -392,6 +399,7 @@ function App() {
                         {currentPage === 'logs' && renderLogs()}
                         {currentPage === 'explorer' && renderExplorer()}
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
+                        {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} /></div>}
                         {currentPage === 'settings' && <div className="text-slate-500">Settings implementation pending...</div>}
                     </div>
                 </main>

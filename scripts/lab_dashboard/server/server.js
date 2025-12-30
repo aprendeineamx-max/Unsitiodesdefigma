@@ -1,4 +1,6 @@
+console.log('DEBUG: Starting server.js...');
 const express = require('express');
+console.log('DEBUG: Express loaded');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -9,13 +11,29 @@ const AdmZip = require('adm-zip');
 const { spawn } = require('child_process');
 const treeKill = require('tree-kill');
 const pidusage = require('pidusage');
+const simpleGit = require('simple-git');
 const detectLib = require('detect-port');
 const detect = detectLib.default || detectLib;
+console.log('DEBUG: Core modules loaded');
 
 // Paths
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
 const LABS_DIR = path.join(PROJECT_ROOT, 'Figma_Labs');
 const LEGACY_DIR = path.join(PROJECT_ROOT, 'Figma_Lab');
+
+console.log(`DEBUG: LABS_DIR=${LABS_DIR}`);
+
+// Imports with potential side effects
+try {
+    console.log('DEBUG: Requires storageService...');
+    const { listBuckets, uploadFileStream } = require('./storageService');
+    console.log('DEBUG: storageService loaded');
+    console.log('DEBUG: Requires archiver...');
+    const archiver = require('archiver');
+    console.log('DEBUG: archiver loaded');
+} catch (e) {
+    console.error('CRITICAL ERROR LOADING MODULES:', e);
+}
 
 // Setup
 const app = express();
@@ -61,29 +79,35 @@ setInterval(async () => {
 }, 2000);
 
 // Helper: Ensure Labs Dir
-fs.ensureDirSync(LABS_DIR);
+if (!fs.existsSync(LABS_DIR)) fs.mkdirSync(LABS_DIR, { recursive: true });
 
 // ==========================================
-// WEBSOCKET LOGGING
+// HELPERS
 // ==========================================
-io.on('connection', (socket) => {
-    console.log('Client connected');
-
-    // Send initial state
-    socket.emit('state-update', getVersionsState());
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected');
-    });
-});
-
 function broadcastState() {
-    io.emit('state-update', getVersionsState());
+    const data = getVersionsState(); // Ensure this is defined later in file
+    io.emit('state-update', data);
 }
 
 function broadcastLog(versionId, text, type = 'info') {
-    io.emit('log', { versionId, text, type, timestamp: new Date() });
+    const logEntry = {
+        versionId,
+        text,
+        type,
+        timestamp: new Date().toISOString()
+    };
+    io.emit('log', logEntry);
+
+    // Optional: Store log in memory
+    const proc = activeProcesses.get(versionId);
+    if (proc) {
+        if (!proc.logs) proc.logs = [];
+        proc.logs.push(logEntry);
+    }
 }
+
+
+
 
 // ==========================================
 // PROCESS MANAGER
@@ -146,6 +170,13 @@ async function startProcess(versionId, preferredPort) {
         return;
     }
 
+    // Check if node_modules exists
+    const nodeModulesPath = path.join(cwd, 'node_modules');
+    if (!fs.existsSync(nodeModulesPath)) {
+        broadcastLog(versionId, `⚠️ node_modules not found. Please upload a complete ZIP or wait for installation to complete.`, 'error');
+        return;
+    }
+
     broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort})...`, 'info');
 
     // 1. Detect available port
@@ -167,22 +198,34 @@ async function startProcess(versionId, preferredPort) {
     activeProcesses.set(versionId, {
         pid: child.pid,
         port: port,
-        status: 'running',
+        status: 'starting', // Mark as starting first
         startTime: new Date()
     });
 
     broadcastState();
 
+    let serverReady = false;
+
     child.stdout.on('data', (data) => {
         const str = data.toString();
-        // broadcastLog(versionId, str, 'info'); // Too noisy?
         process.stdout.write(`[${versionId}] ${str}`);
+
+        // Detect when Vite server is ready
+        if (str.includes('Local:') || str.includes('ready in')) {
+            if (!serverReady) {
+                serverReady = true;
+                const proc = activeProcesses.get(versionId);
+                if (proc) {
+                    proc.status = 'running';
+                    broadcastLog(versionId, `✅ Server is ready at http://localhost:${port}`, 'success');
+                    broadcastState();
+                }
+            }
+        }
     });
 
     child.stderr.on('data', (data) => {
         const str = data.toString();
-
-        // Filter out common innocuous warnings if needed, but for now log all
         broadcastLog(versionId, str, 'info'); // changed to info to reduce alarm fatigue on warnings
         process.stderr.write(`[${versionId}] LOG: ${str}`);
     });
@@ -192,6 +235,16 @@ async function startProcess(versionId, preferredPort) {
         activeProcesses.delete(versionId);
         broadcastState();
     });
+
+    // Fallback: Mark as running after 12 seconds even if we didn't detect "ready" message
+    setTimeout(() => {
+        const proc = activeProcesses.get(versionId);
+        if (proc && proc.status === 'starting') {
+            proc.status = 'running';
+            broadcastLog(versionId, `⏰ Server should be ready now (timeout reached)`, 'info');
+            broadcastState();
+        }
+    }, 12000);
 }
 
 function stopProcess(versionId) {
@@ -396,7 +449,7 @@ app.post('/api/files/write', async (req, res) => {
 });
 
 // ... (Existing imports)
-const simpleGit = require('simple-git');
+
 require('dotenv').config();
 
 // ... (Existing code)
@@ -522,3 +575,7 @@ app.post('/api/git/push', async (req, res) => {
 });
 
 // Start Server
+const PORT = 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`📡 Lab Dashboard API running on http://localhost:${PORT}`);
+});
