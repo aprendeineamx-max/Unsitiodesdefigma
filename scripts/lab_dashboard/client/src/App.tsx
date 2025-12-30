@@ -488,14 +488,14 @@ function App() {
                                 )}
 
                                 {/* Recent Errors Section (when stopped) */}
-                                {v.status === 'stopped' && logs.filter(log => log.versionId === v.id && log.type === 'error').length > 0 && (
+                                {v.status === 'stopped' && logs.filter(log => log.versionId === v.id && log.type === 'error' && !log.text.includes('Process exited with code 1') && !log.text.includes('Server stopped')).length > 0 && (
                                     <div className="mt-3 p-3 bg-red-500/5 rounded-lg border border-red-500/20">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-semibold text-red-400">Recent Errors</span>
                                         </div>
                                         <div className="space-y-1 max-h-20 overflow-y-auto scrollbar-thin">
                                             {logs
-                                                .filter(log => log.versionId === v.id && log.type === 'error')
+                                                .filter(log => log.versionId === v.id && log.type === 'error' && !log.text.includes('Process exited with code 1') && !log.text.includes('Server stopped'))
                                                 .slice(-2)
                                                 .map((log, idx) => (
                                                     <div key={`${v.id}-err-${idx}`} className="text-xs font-mono px-2 py-1 rounded text-red-300 bg-red-500/10">
@@ -597,11 +597,19 @@ function App() {
                                     <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
-                                            if (confirm(`Archive ${v.id}? It will be moved to _Archive folder.`)) {
+                                            const willStop = v.status === 'running';
+                                            const msg = willStop ? `Archive ${v.id}? (Will stop first)` : `Archive ${v.id}?`;
+                                            if (confirm(msg)) {
                                                 try {
+                                                    if (willStop) {
+                                                        await handleStop(v.id);
+                                                        await new Promise(r => setTimeout(r, 1500));
+                                                    }
                                                     await axios.post(`${API_URL}/api/archive`, { version: v.id });
-                                                } catch (err) {
+                                                    alert(`✅ ${v.id} archived successfully`);
+                                                } catch (err: any) {
                                                     console.error('Archive failed:', err);
+                                                    alert(`❌ Archive failed: ${err.response?.data?.error || err.message}`);
                                                 }
                                             }
                                         }}
@@ -617,11 +625,19 @@ function App() {
                                     <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
-                                            if (confirm(`Move ${v.id} to Trash? You can restore it later from _Trash folder.`)) {
+                                            const willStop = v.status === 'running';
+                                            const msg = willStop ? `Move ${v.id} to Trash? (Will stop first)` : `Move ${v.id} to Trash?`;
+                                            if (confirm(msg)) {
                                                 try {
+                                                    if (willStop) {
+                                                        await handleStop(v.id);
+                                                        await new Promise(r => setTimeout(r, 1500));
+                                                    }
                                                     await axios.post(`${API_URL}/api/trash`, { version: v.id });
-                                                } catch (err) {
+                                                    alert(`✅ ${v.id} moved to trash`);
+                                                } catch (err: any) {
                                                     console.error('Trash failed:', err);
+                                                    alert(`❌ Trash failed: ${err.response?.data?.error || err.message}`);
                                                 }
                                             }
                                         }}
