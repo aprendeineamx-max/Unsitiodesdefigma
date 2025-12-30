@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, Monitor, Terminal, Upload, Settings,
     Shield, Menu, ChevronLeft, Sun, Moon, Search,
-    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch, Cloud
+    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch, Cloud, Bug
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -13,6 +13,7 @@ import { FileExplorer } from './components/FileExplorer';
 import { ConsoleLogs } from './components/ConsoleLogs';
 import { GitControl } from './components/GitControl';
 import { CloudBackup } from './components/CloudBackup';
+import { BrowserConsole } from './components/BrowserConsole';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -50,7 +51,7 @@ interface ProcessStats {
     };
 }
 
-type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud';
+type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud' | 'console';
 
 // ==========================================
 // APP COMPONENT
@@ -68,6 +69,7 @@ function App() {
     const [uploading, setUploading] = useState(false);
     const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [portInputs, setPortInputs] = useState<Record<string, number>>({});
 
     const socketRef = useRef<any>(null);
 
@@ -202,29 +204,51 @@ function App() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100 dark:border-slate-700/50">
-                                <div className="text-sm">
-                                    <span className="text-gray-400 dark:text-slate-500 block text-xs">Port</span>
-                                    <span className="font-mono font-bold text-gray-700 dark:text-slate-200">{v.port || '---'}</span>
+                            <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-slate-700/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-sm">
+                                        <span className="text-gray-400 dark:text-slate-500 block text-xs">Port</span>
+                                        {v.status === 'stopped' ? (
+                                            <input
+                                                type="number"
+                                                value={portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174)}
+                                                onChange={(e) => setPortInputs({ ...portInputs, [v.id]: parseInt(e.target.value) || 5174 })}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="w-20 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white font-mono text-sm"
+                                                min="3000"
+                                                max="9999"
+                                            />
+                                        ) : (
+                                            <span className="font-mono font-bold text-gray-700 dark:text-slate-200">{v.port || '---'}</span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="flex gap-2">
                                     {v.status === 'stopped' ? (
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleStart(v.id, v.id.includes('v19') ? 5173 : 5174); }}
-                                            className="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-500/20 dark:hover:bg-green-500/30 text-green-700 dark:text-green-400 rounded-md font-semibold text-sm transition-colors flex items-center gap-1"
+                                            onClick={(e) => { e.stopPropagation(); handleStart(v.id, portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174)); }}
+                                            className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2"
                                         >
-                                            <Play className="w-3 h-3" /> Start
+                                            <Play className="w-4 h-4" /> Start
                                         </button>
                                     ) : (
-                                        <a
-                                            href={`http://localhost:${v.port}`}
-                                            target="_blank"
-                                            className="block w-full text-center py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            Open Browser <ExternalLink className="w-4 h-4" />
-                                        </a>
+                                        <>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleStop(v.id); }}
+                                                className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold text-sm transition-colors flex items-center gap-2"
+                                            >
+                                                <Square className="w-3 h-3" /> Stop
+                                            </button>
+                                            <a
+                                                href={`http://localhost:${v.port}`}
+                                                target="_blank"
+                                                className="flex-1 text-center py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                Open Browser <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -239,6 +263,7 @@ function App() {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
         { id: 'logs', label: 'Console Logs', icon: Terminal, color: 'text-green-500' },
+        { id: 'console', label: 'Browser Console', icon: Bug, color: 'text-purple-500' },
         { id: 'explorer', label: 'File Explorer', icon: FolderOpen, color: 'text-yellow-500' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-gray-500' },
     ];
@@ -397,6 +422,7 @@ function App() {
                     <div className="flex-1 overflow-hidden">
                         {currentPage === 'dashboard' && <div className="h-full overflow-y-auto pr-2">{renderDashboard()}</div>}
                         {currentPage === 'logs' && renderLogs()}
+                        {currentPage === 'console' && <div className="h-full animate-in fade-in duration-300"><BrowserConsole /></div>}
                         {currentPage === 'explorer' && renderExplorer()}
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
                         {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} /></div>}

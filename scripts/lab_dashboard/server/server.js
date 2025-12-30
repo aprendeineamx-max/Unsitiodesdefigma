@@ -170,10 +170,17 @@ async function startProcess(versionId, preferredPort) {
         return;
     }
 
-    // Check if node_modules exists
+    // Check if node_modules exists and vite is installed
     const nodeModulesPath = path.join(cwd, 'node_modules');
+    const vitePath = path.join(cwd, 'node_modules', '.bin', 'vite.cmd');
+
     if (!fs.existsSync(nodeModulesPath)) {
         broadcastLog(versionId, `⚠️ node_modules not found. Please upload a complete ZIP or wait for installation to complete.`, 'error');
+        return;
+    }
+
+    if (!fs.existsSync(vitePath)) {
+        broadcastLog(versionId, `⚠️ Vite not installed. Run "npm install" in ${versionId} directory first.`, 'error');
         return;
     }
 
