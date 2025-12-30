@@ -77,7 +77,7 @@ function App() {
     // Initialize Socket
     useEffect(() => {
         // Initial load
-        axios.get(`${API_URL}/versions`)
+        axios.get(`${API_URL}/api/versions`)
             .then(res => setVersions(res.data))
             .catch(err => console.error('Failed to load versions:', err));
 
@@ -93,7 +93,7 @@ function App() {
             // Auto-refresh versions list when API makes changes
             if (['ZIP_STARTED', 'ZIP_STOPPED', 'ZIP_UPLOADED', 'ZIP_DELETED', 'ZIP_ARCHIVED', 'ZIP_TRASHED', 'BULK_START', 'BULK_STOP', 'BULK_RESTART'].includes(action.type)) {
                 // Refresh versions state
-                axios.get(`${API_URL}/versions`)
+                axios.get(`${API_URL}/api/versions`)
                     .then(res => setVersions(res.data))
                     .catch(err => console.error('Failed to refresh versions:', err));
             }
