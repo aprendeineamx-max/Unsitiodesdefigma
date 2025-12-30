@@ -104,19 +104,35 @@ function App() {
 
     // Actions
     const handleStart = async (id: string, port: number) => {
-        try { await axios.post(`${API_URL}/start`, { id, port }); } catch (err) { alert('Failed to start'); }
+        try {
+            await axios.post(`${API_URL}/api/start`, { version: id, port });
+        } catch (err: any) {
+            console.error(err);
+            alert('Failed to start: ' + (err.response?.data?.error || err.message));
+        }
     };
     const handleStop = async (id: string) => {
-        try { await axios.post(`${API_URL}/stop`, { id }); } catch (err) { alert('Failed to stop'); }
+        try {
+            await axios.post(`${API_URL}/api/stop`, { version: id });
+        } catch (err: any) {
+            console.error(err);
+            alert('Failed to stop: ' + (err.response?.data?.error || err.message));
+        }
     };
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
         const formData = new FormData();
         formData.append('file', e.target.files[0]);
         setUploading(true);
-        try { await axios.post(`${API_URL}/upload`, formData); }
-        catch (err) { alert('Upload failed'); }
-        finally { setUploading(false); e.target.value = ''; }
+        try {
+            await axios.post(`${API_URL}/api/upload`, formData);
+        } catch (err: any) {
+            console.error(err);
+            alert('Upload failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
     };
 
     // Derived State
