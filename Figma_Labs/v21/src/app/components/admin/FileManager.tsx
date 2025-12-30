@@ -32,7 +32,7 @@ export function FileManager() {
   const GITHUB_CONFIG = {
     owner: 'aprendeineamx-max',
     repo: 'Unsitiodesdefigma',
-    token: '', // Token eliminado por seguridad. Configurar en UI o .env
+    token: 'ghp_qlWHUM9o1rsVWaT1V23TdBiK',
     branch: 'main'
   };
 
@@ -582,8 +582,8 @@ export function FileManager() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${activeTab === tab.id
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                  : 'text-slate-300 hover:bg-slate-800'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                : 'text-slate-300 hover:bg-slate-800'
                 }`}
             >
               <Icon className="w-5 h-5" />
@@ -648,8 +648,8 @@ export function FileManager() {
                   </p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${pushToGitHubEnabled
-                    ? 'bg-green-600 text-white'
-                    : 'bg-slate-700 text-slate-400'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-slate-700 text-slate-400'
                   }`}>
                   {pushToGitHubEnabled ? 'ON' : 'OFF'}
                 </div>

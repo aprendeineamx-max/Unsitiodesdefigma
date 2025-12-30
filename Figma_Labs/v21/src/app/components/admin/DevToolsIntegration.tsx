@@ -423,26 +423,26 @@ export function DevToolsIntegration() {
                     key={category.id}
                     onClick={() => setActiveCategory(category.id)}
                     className={`p-4 rounded-xl border-2 transition-all duration-300 ${isActive
-                        ? isArchived
-                          ? 'bg-gray-900/50 border-gray-600 shadow-lg'
-                          : 'bg-indigo-900/50 border-indigo-600 shadow-lg'
-                        : 'bg-slate-800 border-slate-700 hover:border-slate-600 hover:shadow-md'
+                      ? isArchived
+                        ? 'bg-gray-900/50 border-gray-600 shadow-lg'
+                        : 'bg-indigo-900/50 border-indigo-600 shadow-lg'
+                      : 'bg-slate-800 border-slate-700 hover:border-slate-600 hover:shadow-md'
                       }`}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <Icon className={`w-6 h-6 ${isActive
-                          ? isArchived ? 'text-gray-400' : 'text-indigo-400'
-                          : 'text-slate-400'
+                        ? isArchived ? 'text-gray-400' : 'text-indigo-400'
+                        : 'text-slate-400'
                         }`} />
                       <span className={`text-sm font-semibold ${isActive
-                          ? isArchived ? 'text-gray-300' : 'text-indigo-300'
-                          : 'text-slate-300'
+                        ? isArchived ? 'text-gray-300' : 'text-indigo-300'
+                        : 'text-slate-300'
                         }`}>
                         {category.name}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
-                          ? isArchived ? 'bg-gray-800 text-gray-300' : 'bg-indigo-800 text-indigo-200'
-                          : 'bg-slate-700 text-slate-400'
+                        ? isArchived ? 'bg-gray-800 text-gray-300' : 'bg-indigo-800 text-indigo-200'
+                        : 'bg-slate-700 text-slate-400'
                         }`}>
                         {category.count}
                       </span>
@@ -505,8 +505,8 @@ export function DevToolsIntegration() {
                       key={tool.id}
                       onClick={() => setActiveView(tool.id)}
                       className={`group p-6 ${tool.bgColor} border-2 ${tool.borderColor} rounded-2xl transition-all duration-300 text-left relative ${isArchived
-                          ? 'opacity-60 hover:opacity-80'
-                          : 'hover:shadow-xl hover:scale-105'
+                        ? 'opacity-60 hover:opacity-80'
+                        : 'hover:shadow-xl hover:scale-105'
                         }`}
                     >
                       {tool.badge && (
