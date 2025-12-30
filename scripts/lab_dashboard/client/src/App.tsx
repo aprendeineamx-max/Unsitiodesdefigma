@@ -320,6 +320,33 @@ function App() {
                                     </div>
                                 )}
 
+                                {/* Full Diagnostics Panel (Expandable) */}
+                                {logs.filter(log => log.versionId === v.id).length > 0 && (
+                                    <details className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-600">
+                                        <summary className="text-xs font-semibold text-blue-400 cursor-pointer hover:text-blue-300">
+                                            📋 Full Diagnostics ({logs.filter(log => log.versionId === v.id).length} logs)
+                                        </summary>
+                                        <div className="mt-3 space-y-1 max-h-96 overflow-y-auto scrollbar-thin font-mono text-xs">
+                                            {logs
+                                                .filter(log => log.versionId === v.id)
+                                                .map((log, idx) => (
+                                                    <div key={`${v.id}-full-${idx}`} className={cn(
+                                                        "px-2 py-1 rounded border-l-2",
+                                                        log.type === 'error' ? 'bg-red-500/10 border-red-500 text-red-300' :
+                                                            log.type === 'warn' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-300' :
+                                                                log.type === 'success' ? 'bg-green-500/10 border-green-500 text-green-300' :
+                                                                    'bg-blue-500/10 border-blue-500 text-blue-200'
+                                                    )}>
+                                                        <div className="flex gap-2">
+                                                            <span className="text-gray-500 text-xs">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                                                            <span className="flex-1 whitespace-pre-wrap break-all">{log.text}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </details>
+                                )}
+
                                 <div className="flex gap-2">
                                     {v.status === 'stopped' ? (
                                         <button
@@ -336,13 +363,29 @@ function App() {
                                             <Play className="w-4 h-4" /> Start
                                         </button>
                                     ) : v.status === 'starting' || v.status === 'installing' ? (
-                                        <button
-                                            disabled={true}
-                                            className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md font-semibold text-sm flex items-center justify-center gap-2 opacity-75 cursor-wait"
-                                        >
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            {v.status === 'installing' ? 'Installing' : 'Starting'}
-                                        </button>
+                                        <>
+                                            <button
+                                                disabled={true}
+                                                className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md font-semibold text-sm flex items-center justify-center gap-2 opacity-75 cursor-wait"
+                                            >
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                {v.status === 'installing' ? 'Installing' : 'Starting'}
+                                            </button>
+                                            {v.status === 'installing' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (confirm(`Cancel install for ${v.id}? This will stop npm install.`)) {
+                                                            axios.post(`${API_URL}/stop`, { version: v.id })
+                                                                .catch(err => console.error('Failed to cancel install:', err));
+                                                        }
+                                                    }}
+                                                    className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold text-sm transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            )}
+                                        </>
                                     ) : (
                                         <>
                                             <button
