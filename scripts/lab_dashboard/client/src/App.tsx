@@ -230,16 +230,6 @@ function App() {
     const renderDashboard = () => (
         <div className="space-y-8 animate-in fade-in duration-500">
 
-            {/* System Pulse */}
-            <div className="animate-in slide-in-from-top-4 duration-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-                    <Activity className="w-5 h-5 text-indigo-500" />
-                    System Pulse
-                </h2>
-                <ResourceMonitor stats={stats} selectedVersion={selectedVersion} />
-            </div>
-
-
             {/* Upload Zone */}
             <div className="relative group">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-600 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-60 transition duration-500 blur"></div>
