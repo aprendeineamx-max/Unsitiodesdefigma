@@ -17,6 +17,7 @@ import { CloudBackup } from './components/CloudBackup';
 import { BrowserConsole } from './components/BrowserConsole';
 import { TrashView } from './components/TrashView';
 import { SettingsView } from './components/SettingsView';
+import { ArchiveView } from './components/ArchiveView';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -54,7 +55,7 @@ interface ProcessStats {
     }
 }
 
-type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud' | 'console' | 'trash';
+type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud' | 'console' | 'trash' | 'archive';
 type ViewMode = 'grid-small' | 'grid-medium' | 'grid-large' | 'list' | 'list-detailed';
 
 // ==========================================
@@ -730,6 +731,7 @@ function App() {
         { id: 'logs', label: 'Console Logs', icon: Terminal, color: 'text-green-500' },
         { id: 'console', label: 'Browser Console', icon: Bug, color: 'text-purple-500' },
         { id: 'explorer', label: 'File Explorer', icon: FolderOpen, color: 'text-yellow-500' },
+        { id: 'archive', label: 'Archive', icon: GitBranch, color: 'text-cyan-500' },
         { id: 'trash', label: 'Trash', icon: Trash2, color: 'text-orange-500' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-gray-500' },
     ];
@@ -893,6 +895,7 @@ function App() {
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
                         {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} /></div>}
                         {currentPage === 'trash' && <div className="h-full animate-in fade-in duration-300"><TrashView /></div>}
+                        {currentPage === 'archive' && <div className="h-full animate-in fade-in duration-300"><ArchiveView /></div>}
                         {currentPage === 'settings' && <div className="h-full"><SettingsView stats={stats} selectedVersion={selectedVersion} /></div>}
                     </div>
                 </main>
