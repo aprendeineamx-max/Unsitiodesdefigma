@@ -85,7 +85,7 @@ if (!fs.existsSync(LABS_DIR)) fs.mkdirSync(LABS_DIR, { recursive: true });
 // HELPERS
 // ==========================================
 function broadcastState() {
-    const data = getVersionsState(); // Ensure this is defined later in file
+    const data = getVersionsState();
     io.emit('state-update', data);
 }
 
@@ -105,9 +105,6 @@ function broadcastLog(versionId, text, type = 'info') {
         proc.logs.push(logEntry);
     }
 }
-
-
-
 
 // ==========================================
 // PROCESS MANAGER
@@ -170,27 +167,6 @@ async function startProcess(versionId, preferredPort) {
         return;
     }
 
-    // Check if node_modules exists and vite is installed
-    const nodeModulesPath = path.join(cwd, 'node_modules');
-    const vitePath = path.join(cwd, 'node_modules', '.bin', 'vite.cmd');
-
-    if (!fs.existsSync(nodeModulesPath) || !fs.existsSync(vitePath)) {
-        broadcastLog(versionId, `📦 Dependencies missing. Installing automatically...`, 'warn');
-
-        return new Promise((resolve) => {
-            const inst = spawn('npm.cmd', ['install'], { cwd, stdio: ['ignore', 'pipe', 'pipe'], shell: true });
-            inst.stdout.on('data', (d) => { if (d.toString().includes('added')) broadcastLog(versionId, d.toString().trim(), 'info'); });
-            inst.on('close', (code) => {
-                if (code === 0) {
-                    broadcastLog(versionId, `✅ Installed!`, 'success');
-                    setTimeout(() => startProcess(versionId, preferredPort), 1000);
-                } else broadcastLog(versionId, `❌ Install failed`, 'error');
-                resolve();
-            });
-        });
-    }
-
-
     broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort === 0 ? 'auto' : preferredPort})...`, 'info');
 
     // 1. Detect available port (use 5174 as base for auto-detect when port=0)
@@ -213,7 +189,7 @@ async function startProcess(versionId, preferredPort) {
     activeProcesses.set(versionId, {
         pid: child.pid,
         port: port,
-        status: 'starting', // Mark as starting first
+        status: 'starting',
         startTime: new Date()
     });
 
@@ -237,16 +213,17 @@ async function startProcess(versionId, preferredPort) {
                 }
             }
         }
+        broadcastLog(versionId, str.trim(), 'info');
     });
 
     child.stderr.on('data', (data) => {
         const str = data.toString();
-        broadcastLog(versionId, str, 'info'); // changed to info to reduce alarm fatigue on warnings
-        process.stderr.write(`[${versionId}] LOG: ${str}`);
+        broadcastLog(versionId, str.trim(), 'info');
+        process.stderr.write(`[${versionId}] ${str}`);
     });
 
     child.on('close', (code) => {
-        broadcastLog(versionId, `Process exited with code ${code}`, 'warn');
+        broadcastLog(versionId, `Process exited with code ${code}`, code === 0 ? 'success' : 'error');
         activeProcesses.delete(versionId);
         broadcastState();
     });
@@ -290,7 +267,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
         // Extract Version number from filename (e.g., "Unsitiodesdefigma(21).zip")
-        // Regex for (number)
         const match = file.originalname.match(/\((\d+)\)/);
         const versionNum = match ? match[1] : `new-${Date.now()}`;
         const versionId = `v${versionNum}`;
@@ -309,26 +285,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         // Clean upload
         await fs.remove(file.path);
 
-        broadcastLog('system', `✅ Extracted to ${versionId}. Installing dependencies...`, 'success');
-
-        // Install Dependencies (Async)
-        const install = spawn('npm.cmd', ['install'], { cwd: targetDir, shell: true });
-
-        install.stdout.on('data', d => broadcastLog(versionId, `npm: ${d}`, 'info'));
-        install.stderr.on('data', d => {
-            // npm warnings go to stderr
-        });
-
-        install.on('close', (code) => {
-            if (code === 0) {
-                broadcastLog(versionId, 'Checking types...', 'info');
-                // Install types explicitly if needed? Usually in package.json
-                broadcastLog(versionId, '✅ Ready to start!', 'success');
-            } else {
-                broadcastLog(versionId, `❌ Install failed with code ${code}`, 'error');
-            }
-            broadcastState();
-        });
+        broadcastLog('system', `✅ Extracted to ${versionId}. Ready to start!`, 'success');
 
         res.json({ success: true, versionId });
         broadcastState();
@@ -348,13 +305,11 @@ app.get('/api/versions', (req, res) => {
 
 app.post('/api/start', async (req, res) => {
     try {
-        const { id, port } = req.body;
-        if (!id) return res.status(400).json({ error: 'Missing id' });
+        const { version, port } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
 
-        // Default mechanism: If port provided, try it. If not, guess based on ID or start at 5173.
-        let targetPort = port || 5173;
-
-        await startProcess(id, targetPort);
+        let targetPort = port || 5174;
+        await startProcess(version, targetPort);
         res.json({ success: true });
     } catch (err) {
         console.error('Error in /api/start:', err);
@@ -363,8 +318,8 @@ app.post('/api/start', async (req, res) => {
 });
 
 app.post('/api/stop', (req, res) => {
-    const { id } = req.body;
-    stopProcess(id);
+    const { version } = req.body;
+    stopProcess(version);
     res.json({ success: true });
 });
 
@@ -381,7 +336,6 @@ app.get('/api/files', async (req, res) => {
 
     const targetPath = queryPath ? path.join(basePath, queryPath) : basePath;
 
-    // Security Check
     if (!targetPath.startsWith(basePath)) {
         return res.status(403).json({ error: 'Access denied' });
     }
@@ -396,7 +350,7 @@ app.get('/api/files', async (req, res) => {
         const result = [];
 
         for (const item of items) {
-            if (item === 'node_modules' || item.startsWith('.')) continue; // Hide noise
+            if (item === 'node_modules' || item.startsWith('.')) continue;
 
             const itemPath = path.join(targetPath, item);
             try {
@@ -410,7 +364,6 @@ app.get('/api/files', async (req, res) => {
             } catch (e) { }
         }
 
-        // Sort: Dirs first
         result.sort((a, b) => {
             if (a.type === b.type) return a.name.localeCompare(b.name);
             return a.type === 'dir' ? -1 : 1;
@@ -463,15 +416,11 @@ app.post('/api/files/write', async (req, res) => {
     }
 });
 
-// ... (Existing imports)
-
-require('dotenv').config();
-
-// ... (Existing code)
-
 // ==========================================
 // GIT OPS CENTER
 // ==========================================
+require('dotenv').config();
+
 const getGit = (versionId) => {
     let basePath;
     if (versionId === 'v19-legacy') basePath = LEGACY_DIR;
@@ -482,7 +431,6 @@ const getGit = (versionId) => {
 };
 
 app.get('/api/git/status', async (req, res) => {
-    // Expected query: versionId
     const { versionId } = req.query;
     if (!versionId) return res.status(400).json({ error: 'Missing versionId' });
 
@@ -540,7 +488,6 @@ app.post('/api/git/remote', async (req, res) => {
     try {
         const git = getGit(versionId);
 
-        // Remove existing origin if exists to replace it
         const remotes = await git.getRemotes();
         if (remotes.find(r => r.name === 'origin')) {
             await git.removeRemote('origin');
@@ -556,22 +503,18 @@ app.post('/api/git/remote', async (req, res) => {
 
 app.post('/api/git/push', async (req, res) => {
     const { versionId, branch } = req.body;
-    const targetBranch = branch || 'main'; // Default to main
+    const targetBranch = branch || 'main';
 
     try {
         const git = getGit(versionId);
-
-        // Use Token for Auth if available
         const token = process.env.GITHUB_TOKEN;
         let remote = 'origin';
 
         if (token) {
-            // Get remote URL to inject token
             const remotes = await git.getRemotes(true);
             const origin = remotes.find(r => r.name === 'origin');
             if (origin && origin.refs.push) {
                 let url = origin.refs.push;
-                // Inject token: https://TOKEN@github.com/...
                 if (url.startsWith('https://')) {
                     remote = url.replace('https://', `https://${token}@`);
                 }
