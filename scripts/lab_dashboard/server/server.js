@@ -459,6 +459,41 @@ app.post('/api/archive', async (req, res) => {
     }
 });
 
+
+
+// ==========================================
+// ARCHIVE LIST ENDPOINT (Injected)
+// ==========================================
+app.get('/api/archive/list', async (req, res) => {
+    try {
+        const archiveDir = path.join(LABS_DIR, '_Archive');
+        
+        if (!fs.existsSync(archiveDir)) {
+            return res.json([]);
+        }
+
+        const items = await fs.readdir(archiveDir);
+        const dirs = [];
+        
+        for (const item of items) {
+            const itemPath = path.join(archiveDir, item);
+            const stat = await fs.stat(itemPath);
+            if (stat.isDirectory()) {
+                dirs.push({ 
+                    id: item,
+                    path: itemPath,
+                    archivedAt: stat.mtime
+                });
+            }
+        }
+        
+        res.json(dirs);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/trash', async (req, res) => {
     try {
         const { version } = req.body;
