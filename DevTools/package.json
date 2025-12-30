@@ -1,0 +1,16 @@
+{
+    "name": "lab-manager-devtools",
+    "version": "1.0.0",
+    "description": "DevTools for Lab Manager - CLI, Testing, Monitoring",
+    "scripts": {
+        "cli": "node lab-cli.js",
+        "test": "node test-api.js",
+        "monitor": "node event-monitor.js"
+    },
+    "dependencies": {
+        "socket.io-client": "^4.7.2",
+        "axios": "^1.6.2",
+        "chalk": "^4.1.2",
+        "blessed": "^0.1.81"
+    }
+}

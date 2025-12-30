@@ -563,6 +563,210 @@ app.post('/api/files/write', async (req, res) => {
 });
 
 // ==========================================
+// API DOCUMENTATION & SYSTEM INFO
+// ==========================================
+app.get('/api/docs', (req, res) => {
+    res.json({
+        version: '1.0.0',
+        name: 'Lab Manager API',
+        description: 'Complete API for managing Figma Lab environments',
+        baseUrl: 'http://localhost:3000',
+        websocket: {
+            url: 'ws://localhost:3000',
+            events: {
+                'state-update': 'Emitted when ZIP states change (start, stop, etc)',
+                'log': 'Real-time logs from all ZIPs',
+                'stats-update': 'CPU/Memory stats every 2 seconds',
+                'action': 'Any user or API action performed'
+            }
+        },
+        endpoints: {
+            // Version Management
+            versions: {
+                method: 'GET',
+                path: '/api/versions',
+                description: 'Get all ZIP versions and their current status',
+                response: [{ id: 'string', path: 'string', type: 'string', status: 'string', port: 'number', pid: 'number' }]
+            },
+            start: {
+                method: 'POST',
+                path: '/api/start',
+                body: { version: 'string (required)', port: 'number (optional, 0 for auto)' },
+                description: 'Start a ZIP server with optional port specification'
+            },
+            stop: {
+                method: 'POST',
+                path: '/api/stop',
+                body: { version: 'string (required)' },
+                description: 'Stop a running ZIP server'
+            },
+            archive: {
+                method: 'POST',
+                path: '/api/archive',
+                body: { version: 'string (required)' },
+                description: 'Move ZIP to _Archive folder'
+            },
+            trash: {
+                method: 'POST',
+                path: '/api/trash',
+                body: { version: 'string (required)' },
+                description: 'Move ZIP to _Trash folder'
+            },
+            delete: {
+                method: 'POST',
+                path: '/api/delete',
+                body: { version: 'string (required)' },
+                description: 'Permanently delete ZIP (irreversible)'
+            },
+            // File System
+            files: {
+                method: 'GET',
+                path: '/api/files',
+                query: { versionId: 'string (required)', path: 'string (optional)' },
+                description: 'Browse files in a ZIP directory'
+            },
+            fileRead: {
+                method: 'GET',
+                path: '/api/files/read',
+                query: { versionId: 'string (required)', path: 'string (required)' },
+                description: 'Read file content'
+            },
+            fileWrite: {
+                method: 'POST',
+                path: '/api/files/write',
+                body: { versionId: 'string', path: 'string', content: 'string' },
+                description: 'Write file content'
+            },
+            // Git Operations
+            gitStatus: {
+                method: 'GET',
+                path: '/api/git/status',
+                query: { versionId: 'string (required)' },
+                description: 'Get Git repository status'
+            },
+            gitInit: {
+                method: 'POST',
+                path: '/api/git/init',
+                body: { versionId: 'string' },
+                description: 'Initialize Git repository'
+            },
+            gitCommit: {
+                method: 'POST',
+                path: '/api/git/commit',
+                body: { versionId: 'string', message: 'string' },
+                description: 'Commit changes'
+            },
+            gitRemote: {
+                method: 'POST',
+                path: '/api/git/remote',
+                body: { versionId: 'string', repoUrl: 'string' },
+                description: 'Add remote repository'
+            },
+            gitPush: {
+                method: 'POST',
+                path: '/api/git/push',
+                body: { versionId: 'string', branch: 'string (optional, default: main)' },
+                description: 'Push to remote'
+            },
+            // Upload
+            upload: {
+                method: 'POST',
+                path: '/api/upload',
+                contentType: 'multipart/form-data',
+                body: { file: 'File (ZIP)' },
+                description: 'Upload new ZIP file'
+            },
+            // System
+            systemInfo: {
+                method: 'GET',
+                path: '/api/system/info',
+                description: 'Get system statistics and information'
+            },
+            docs: {
+                method: 'GET',
+                path: '/api/docs',
+                description: 'This documentation endpoint'
+            }
+        },
+        examples: {
+            curl: {
+                start: 'curl -X POST http://localhost:3000/api/start -H "Content-Type: application/json" -d \'{"version":"v22","port":5200}\'',
+                list: 'curl http://localhost:3000/api/versions',
+                stop: 'curl -X POST http://localhost:3000/api/stop -H "Content-Type: application/json" -d \'{"version":"v22"}\''
+            },
+            nodejs: {
+                start: 'await axios.post("http://localhost:3000/api/start", { version: "v22", port: 5200 })',
+                list: 'const { data } = await axios.get("http://localhost:3000/api/versions")',
+                websocket: 'const socket = io("http://localhost:3000"); socket.on("log", (log) => console.log(log));'
+            }
+        }
+    });
+});
+
+app.get('/api/system/info', async (req, res) => {
+    try {
+        const versions = getVersionsState();
+        const activeCount = versions.filter(v => v.status === 'running' || v.status === 'starting').length;
+        const stoppedCount = versions.filter(v => v.status === 'stopped').length;
+
+        // Check archive and trash directories
+        const archiveDir = path.join(LABS_DIR, '_Archive');
+        const trashDir = path.join(LABS_DIR, '_Trash');
+
+        let archiveCount = 0;
+        let trashCount = 0;
+
+        if (fs.existsSync(archiveDir)) {
+            archiveCount = fs.readdirSync(archiveDir).filter(item =>
+                fs.statSync(path.join(archiveDir, item)).isDirectory()
+            ).length;
+        }
+
+        if (fs.existsSync(trashDir)) {
+            trashCount = fs.readdirSync(trashDir).filter(item =>
+                fs.statSync(path.join(trashDir, item)).isDirectory()
+            ).length;
+        }
+
+        const uptime = process.uptime();
+        const hours = Math.floor(uptime / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+
+        res.json({
+            system: {
+                uptime: `${hours}h ${minutes}m`,
+                uptimeSeconds: Math.floor(uptime),
+                nodeVersion: process.version,
+                platform: process.platform,
+                memory: {
+                    used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+                    total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
+                }
+            },
+            zips: {
+                total: versions.length,
+                active: activeCount,
+                stopped: stoppedCount,
+                archived: archiveCount,
+                trash: trashCount
+            },
+            processes: {
+                running: activeProcesses.size,
+                details: Array.from(activeProcesses.entries()).map(([id, proc]) => ({
+                    id,
+                    pid: proc.pid,
+                    port: proc.port,
+                    status: proc.status,
+                    uptime: Math.floor((Date.now() - proc.startTime.getTime()) / 1000) + 's'
+                }))
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // GIT OPS CENTER
 // ==========================================
 require('dotenv').config();
