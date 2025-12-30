@@ -886,6 +886,471 @@ app.post('/api/env/:versionId', async (req, res) => {
 });
 
 // ==========================================
+// SNAPSHOTS & TIME TRAVEL
+// ==========================================
+app.post('/api/snapshots/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { name } = req.body;
+        const sourcePath = path.join(LABS_DIR, versionId);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        const snapshotsDir = path.join(LABS_DIR, '_Snapshots', versionId);
+        await fs.ensureDir(snapshotsDir);
+
+        const timestamp = Date.now();
+        const snapshotName = name || `snapshot_${timestamp}`;
+        const snapshotPath = path.join(snapshotsDir, snapshotName);
+
+        // Copy entire directory
+        await fs.copy(sourcePath, snapshotPath, {
+            filter: (src) => !src.includes('node_modules') && !src.includes('.git')
+        });
+
+        // Save metadata
+        const metadata = {
+            id: snapshotName,
+            versionId,
+            name: snapshotName,
+            timestamp,
+            date: new Date().toISOString(),
+            size: await getDirectorySize(snapshotPath)
+        };
+
+        await fs.writeJson(path.join(snapshotPath, '.snapshot-meta.json'), metadata);
+
+        broadcastLog('system', `📸 Snapshot created: ${snapshotName} for ${versionId}`, 'success');
+
+        res.json({ success: true, snapshot: metadata });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/snapshots/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const snapshotsDir = path.join(LABS_DIR, '_Snapshots', versionId);
+
+        if (!fs.existsSync(snapshotsDir)) {
+            return res.json({ snapshots: [] });
+        }
+
+        const snapshots = [];
+        const dirs = await fs.readdir(snapshotsDir);
+
+        for (const dir of dirs) {
+            const metaPath = path.join(snapshotsDir, dir, '.snapshot-meta.json');
+            if (fs.existsSync(metaPath)) {
+                const metadata = await fs.readJson(metaPath);
+                snapshots.push(metadata);
+            }
+        }
+
+        res.json({ snapshots: snapshots.sort((a, b) => b.timestamp - a.timestamp) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/snapshots/:versionId/restore', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { snapshotId } = req.body;
+
+        const sourcePath = path.join(LABS_DIR, versionId);
+        const snapshotPath = path.join(LABS_DIR, '_Snapshots', versionId, snapshotId);
+
+        if (!fs.existsSync(snapshotPath)) {
+            return res.status(404).json({ error: 'Snapshot not found' });
+        }
+
+        // Stop if running
+        stopProcess(versionId);
+
+        // Backup current state before restore
+        const backupPath = path.join(LABS_DIR, '_Snapshots', versionId, `pre-restore_${Date.now()}`);
+        if (fs.existsSync(sourcePath)) {
+            await fs.copy(sourcePath, backupPath);
+        }
+
+        // Clear current
+        await fs.remove(sourcePath);
+
+        // Restore snapshot
+        await fs.copy(snapshotPath, sourcePath, {
+            filter: (src) => !src.includes('.snapshot-meta.json')
+        });
+
+        broadcastLog('system', `⏮️ Restored ${versionId} from snapshot ${snapshotId}`, 'success');
+        broadcastState();
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Helper function
+async function getDirectorySize(dirPath) {
+    let size = 0;
+    const files = await fs.readdir(dirPath);
+
+    for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        const stats = await fs.stat(filePath);
+
+        if (stats.isDirectory()) {
+            size += await getDirectorySize(filePath);
+        } else {
+            size += stats.size;
+        }
+    }
+
+    return Math.round(size / 1024) + ' KB';
+}
+
+// ==========================================
+// CLONING & DUPLICATION
+// ==========================================
+app.post('/api/clone', async (req, res) => {
+    try {
+        const { sourceVersion, targetVersion, includeDeps } = req.body;
+
+        const sourcePath = path.join(LABS_DIR, sourceVersion);
+        const targetPath = path.join(LABS_DIR, targetVersion);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Source version not found' });
+        }
+
+        if (fs.existsSync(targetPath)) {
+            return res.status(400).json({ error: 'Target version already exists' });
+        }
+
+        broadcastLog('system', `🔄 Cloning ${sourceVersion} to ${targetVersion}...`, 'info');
+
+        // Copy files
+        await fs.copy(sourcePath, targetPath, {
+            filter: (src) => {
+                if (!includeDeps && src.includes('node_modules')) return false;
+                if (src.includes('.git')) return false;
+                return true;
+            }
+        });
+
+        // Update package.json name if exists
+        const pkgPath = path.join(targetPath, 'package.json');
+        if (fs.existsSync(pkgPath)) {
+            const pkg = await fs.readJson(pkgPath);
+            pkg.name = targetVersion;
+            await fs.writeJson(pkgPath, pkg, { spaces: 2 });
+        }
+
+        broadcastLog('system', `✅ Cloned ${sourceVersion} → ${targetVersion}`, 'success');
+        broadcastState();
+
+        res.json({ success: true, targetVersion });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// TERMINAL/SHELL API
+// ==========================================
+app.post('/api/terminal/:versionId/exec', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { command } = req.body;
+
+        const cwd = path.join(LABS_DIR, versionId);
+
+        if (!fs.existsSync(cwd)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        broadcastLog(versionId, `💻 Executing: ${command}`, 'info');
+
+        const output = await new Promise((resolve, reject) => {
+            const proc = spawn(command, [], {
+                cwd,
+                shell: true,
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            proc.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            proc.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            proc.on('close', (code) => {
+                resolve({ code, stdout, stderr });
+            });
+
+            proc.on('error', (err) => {
+                reject(err);
+            });
+
+            // Timeout after 30 seconds
+            setTimeout(() => {
+                proc.kill();
+                reject(new Error('Command timeout'));
+            }, 30000);
+        });
+
+        broadcastLog(versionId, `✅ Command completed (exit ${output.code})`, 'success');
+
+        res.json({
+            success: output.code === 0,
+            exitCode: output.code,
+            stdout: output.stdout,
+            stderr: output.stderr
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// FILE WATCHING
+// ==========================================
+const fileWatchers = new Map();
+
+app.post('/api/watch/:versionId/start', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { patterns, action } = req.body; // patterns = ['src/**/*.tsx']
+
+        const watchPath = path.join(LABS_DIR, versionId);
+
+        if (!fs.existsSync(watchPath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        if (fileWatchers.has(versionId)) {
+            return res.status(400).json({ error: 'Watcher already running' });
+        }
+
+        const chokidar = require('chokidar');
+        const watcher = chokidar.watch(patterns || ['src/**/*'], {
+            cwd: watchPath,
+            ignored: ['**/node_modules/**', '**/.git/**'],
+            persistent: true
+        });
+
+        watcher.on('change', async (filePath) => {
+            broadcastLog(versionId, `📝 File changed: ${filePath}`, 'info');
+
+            if (action === 'reload') {
+                // Trigger hot reload (if running)
+                broadcastLog(versionId, `🔄 Hot reload triggered`, 'info');
+            } else if (action === 'restart') {
+                // Restart server
+                stopProcess(versionId);
+                await new Promise(r => setTimeout(r, 1000));
+                await startProcess(versionId, 0);
+            }
+        });
+
+        fileWatchers.set(versionId, watcher);
+
+        broadcastLog('system', `👁️ File watcher started for ${versionId}`, 'success');
+
+        res.json({ success: true, watching: patterns || ['src/**/*'] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/watch/:versionId/stop', (req, res) => {
+    const { versionId } = req.params;
+    const watcher = fileWatchers.get(versionId);
+
+    if (!watcher) {
+        return res.status(404).json({ error: 'No watcher running' });
+    }
+
+    watcher.close();
+    fileWatchers.delete(versionId);
+
+    broadcastLog('system', `❌ File watcher stopped for ${versionId}`, 'info');
+
+    res.json({ success: true });
+});
+
+// ==========================================
+// DEPENDENCY MANAGEMENT
+// ==========================================
+app.get('/api/deps/:versionId/analyze', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const pkgPath = path.join(LABS_DIR, versionId, 'package.json');
+
+        if (!fs.existsSync(pkgPath)) {
+            return res.status(404).json({ error: 'package.json not found' });
+        }
+
+        const pkg = await fs.readJson(pkgPath);
+
+        const analysis = {
+            dependencies: Object.keys(pkg.dependencies || {}).length,
+            devDependencies: Object.keys(pkg.devDependencies || {}).length,
+            total: Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length,
+            list: {
+                dependencies: pkg.dependencies || {},
+                devDependencies: pkg.devDependencies || {}
+            }
+        };
+
+        res.json(analysis);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/deps/:versionId/update', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { packages } = req.body; // ['react@latest', 'vite@^5.0.0']
+
+        const cwd = path.join(LABS_DIR, versionId);
+
+        broadcastLog(versionId, `📦 Updating dependencies: ${packages.join(', ')}`, 'info');
+
+        const result = await new Promise((resolve, reject) => {
+            const proc = spawn('npm.cmd', ['install', ...packages], {
+                cwd,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                shell: true
+            });
+
+            let output = '';
+
+            proc.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            proc.on('close', (code) => {
+                if (code === 0) {
+                    resolve({ success: true, output });
+                } else {
+                    reject(new Error('npm install failed'));
+                }
+            });
+        });
+
+        broadcastLog(versionId, `✅ Dependencies updated`, 'success');
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// BACKUP SYSTEM
+// ==========================================
+app.post('/api/backup/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const sourcePath = path.join(LABS_DIR, versionId);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        const backupsDir = path.join(LABS_DIR, '_Backups', versionId);
+        await fs.ensureDir(backupsDir);
+
+        const timestamp = Date.now();
+        const backupName = `backup_${timestamp}`;
+        const backupPath = path.join(backupsDir, backupName);
+
+        await fs.copy(sourcePath, backupPath, {
+            filter: (src) => !src.includes('node_modules')
+        });
+
+        broadcastLog('system', `💾 Backup created: ${backupName}`, 'success');
+
+        res.json({
+            success: true,
+            backup: {
+                id: backupName,
+                timestamp,
+                date: new Date().toISOString()
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/backup/:versionId/list', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const backupsDir = path.join(LABS_DIR, '_Backups', versionId);
+
+        if (!fs.existsSync(backupsDir)) {
+            return res.json({ backups: [] });
+        }
+
+        const dirs = await fs.readdir(backupsDir);
+        const backups = dirs.map(name => ({
+            id: name,
+            timestamp: parseInt(name.replace('backup_', '')),
+            date: new Date(parseInt(name.replace('backup_', ''))).toISOString()
+        }));
+
+        res.json({ backups: backups.sort((a, b) => b.timestamp - a.timestamp) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// LOGS STREAMING (SSE)
+// ==========================================
+app.get('/api/logs/:versionId/stream', (req, res) => {
+    const { versionId } = req.params;
+
+    // Set SSE headers
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+    });
+
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: 'connected', versionId })}\n\n`);
+
+    // Listen to socket logs and forward
+    const logHandler = (log) => {
+        if (log.versionId === versionId || log.versionId === 'system') {
+            res.write(`data: ${JSON.stringify(log)}\n\n`);
+        }
+    };
+
+    io.on('connection', (socket) => {
+        socket.on('log', logHandler);
+    });
+
+    // Cleanup on close
+    req.on('close', () => {
+        res.end();
+    });
+});
+
+// ==========================================
 // FILE SYSTEM API
 // ==========================================
 app.get('/api/files', async (req, res) => {
