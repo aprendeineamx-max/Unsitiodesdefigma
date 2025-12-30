@@ -30,7 +30,7 @@ interface Version {
     id: string;
     path: string;
     type: 'lab' | 'legacy';
-    status: 'running' | 'stopped';
+    status: 'running' | 'stopped' | 'starting';
     port: number | null;
     pid: number | null;
 }
@@ -70,6 +70,7 @@ function App() {
     const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [portInputs, setPortInputs] = useState<Record<string, number>>({});
+    const [smartPortEnabled, setSmartPortEnabled] = useState<Record<string, boolean>>({});
 
     const socketRef = useRef<any>(null);
 
@@ -206,28 +207,108 @@ function App() {
 
                             <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-slate-700/50">
                                 <div className="flex items-center justify-between">
-                                    <div className="text-sm">
-                                        <span className="text-gray-400 dark:text-slate-500 block text-xs">Port</span>
+                                    <div className="text-sm flex-1">
+                                        <span className="text-gray-400 dark:text-slate-500 block text-xs mb-1">Port</span>
                                         {v.status === 'stopped' ? (
-                                            <input
-                                                type="number"
-                                                value={portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174)}
-                                                onChange={(e) => setPortInputs({ ...portInputs, [v.id]: parseInt(e.target.value) || 5174 })}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="w-20 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white font-mono text-sm"
-                                                min="3000"
-                                                max="9999"
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number"
+                                                    value={portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174)}
+                                                    onChange={(e) => setPortInputs({ ...portInputs, [v.id]: parseInt(e.target.value) || 5174 })}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    disabled={smartPortEnabled[v.id]}
+                                                    className={cn(
+                                                        "w-20 px-2 py-1 bg-slate-800 border rounded text-white font-mono text-sm",
+                                                        smartPortEnabled[v.id]
+                                                            ? "border-indigo-500 opacity-50 cursor-not-allowed"
+                                                            : "border-slate-600"
+                                                    )}
+                                                    min="3000"
+                                                    max="9999"
+                                                />
+                                                <label
+                                                    className="flex items-center gap-1.5 cursor-pointer group"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={smartPortEnabled[v.id] || false}
+                                                        onChange={(e) => {
+                                                            e.stopPropagation();
+                                                            setSmartPortEnabled({ ...smartPortEnabled, [v.id]: e.target.checked });
+                                                        }}
+                                                        className="sr-only"
+                                                    />
+                                                    <div className={cn(
+                                                        "relative w-10 h-5 rounded-full transition-colors",
+                                                        smartPortEnabled[v.id] ? "bg-indigo-600" : "bg-slate-600"
+                                                    )}>
+                                                        <div className={cn(
+                                                            "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform flex items-center justify-center",
+                                                            smartPortEnabled[v.id] ? "translate-x-5" : "translate-x-0"
+                                                        )}>
+                                                            {smartPortEnabled[v.id] && (
+                                                                <Activity className="w-2.5 h-2.5 text-indigo-600" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400 group-hover:text-gray-300">
+                                                        Smart
+                                                    </span>
+                                                </label>
+                                            </div>
                                         ) : (
-                                            <span className="font-mono font-bold text-gray-700 dark:text-slate-200">{v.port || '---'}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-gray-700 dark:text-slate-200">{v.port || '---'}</span>
+                                                {v.port && smartPortEnabled[v.id] && (
+                                                    <span className="text-xs text-indigo-400">(auto)</span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
 
+                                {/* Startup Progress Section */}
+                                {v.status === 'starting' && (
+                                    <div className="mt-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-indigo-400">Starting...</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 max-h-24 overflow-y-auto scrollbar-thin">
+                                            {logs
+                                                .filter(log => log.versionId === v.id)
+                                                .slice(-4)
+                                                .map((log, idx) => (
+                                                    <div key={`${v.id}-${idx}`} className={cn(
+                                                        "text-xs font-mono px-2 py-1 rounded",
+                                                        log.type === 'error' ? 'text-red-400 bg-red-500/10' :
+                                                            log.type === 'warn' ? 'text-yellow-400 bg-yellow-500/10' :
+                                                                log.type === 'success' ? 'text-green-400 bg-green-500/10' :
+                                                                    'text-gray-300'
+                                                    )}>
+                                                        {log.text}
+                                                    </div>
+                                                ))}
+                                            {logs.filter(log => log.versionId === v.id).length === 0 && (
+                                                <div className="text-xs text-gray-500 italic">Waiting for logs...</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex gap-2">
                                     {v.status === 'stopped' ? (
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleStart(v.id, portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174)); }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const port = smartPortEnabled[v.id]
+                                                    ? 0  // Signal auto-detect
+                                                    : (portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174));
+                                                handleStart(v.id, port);
+                                            }}
                                             className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Play className="w-4 h-4" /> Start

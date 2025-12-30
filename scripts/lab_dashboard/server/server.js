@@ -184,10 +184,11 @@ async function startProcess(versionId, preferredPort) {
         return;
     }
 
-    broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort})...`, 'info');
+    broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort === 0 ? 'auto' : preferredPort})...`, 'info');
 
-    // 1. Detect available port
-    const port = await detect(preferredPort);
+    // 1. Detect available port (use 5174 as base for auto-detect when port=0)
+    const basePort = preferredPort === 0 ? 5174 : preferredPort;
+    const port = await detect(basePort);
 
     if (port !== preferredPort) {
         broadcastLog(versionId, `⚠️ Port ${preferredPort} is busy. Switching to available port: ${port}`, 'warn');

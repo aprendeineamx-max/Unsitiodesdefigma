@@ -138,8 +138,12 @@ export function BrowserConsole() {
             {/* Console Output */}
             <div className="flex-1 overflow-y-auto p-4 font-mono text-sm space-y-2">
                 {logs.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
-                        No console output yet...
+                    <div className="text-center text-gray-500 py-8 space-y-3">
+                        <div className="text-lg">No browser console output yet...</div>
+                        <div className="text-xs max-w-md mx-auto space-y-2">
+                            <p className="text-indigo-400">💡 This captures browser logs only (console.log, console.error, etc.)</p>
+                            <p>For backend server logs, check the <span className="text-indigo-400 font-semibold">"Console Logs"</span> tab in the sidebar.</p>
+                        </div>
                     </div>
                 ) : (
                     logs.map(log => (
