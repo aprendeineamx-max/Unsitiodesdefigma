@@ -376,6 +376,100 @@ app.post('/api/stop', (req, res) => {
 });
 
 // ==========================================
+// ZIP MANAGEMENT
+// ==========================================
+app.post('/api/archive', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        const sourcePath = path.join(LABS_DIR, version);
+        const archiveDir = path.join(LABS_DIR, '_Archive');
+        const targetPath = path.join(archiveDir, version);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        // Stop process if running
+        stopProcess(version);
+
+        // Ensure archive directory exists
+        await fs.ensureDir(archiveDir);
+
+        // Move to archive
+        await fs.move(sourcePath, targetPath, { overwrite: true });
+
+        broadcastLog('system', `📁 Archived ${version} to Archive`, 'success');
+        broadcastState();
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/trash', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        const sourcePath = path.join(LABS_DIR, version);
+        const trashDir = path.join(LABS_DIR, '_Trash');
+        const targetPath = path.join(trashDir, version);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        // Stop process if running
+        stopProcess(version);
+
+        // Ensure trash directory exists
+        await fs.ensureDir(trashDir);
+
+        // Move to trash
+        await fs.move(sourcePath, targetPath, { overwrite: true });
+
+        broadcastLog('system', `🗑️ Moved ${version} to Trash`, 'warn');
+        broadcastState();
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/delete', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        const sourcePath = path.join(LABS_DIR, version);
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        // Stop process if running
+        stopProcess(version);
+
+        // Permanently delete
+        await fs.remove(sourcePath);
+
+        broadcastLog('system', `❌ Permanently deleted ${version}`, 'error');
+        broadcastState();
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // FILE SYSTEM API
 // ==========================================
 app.get('/api/files', async (req, res) => {
