@@ -318,10 +318,27 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const file = req.file;
         if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
-        // Extract Version number from filename (e.g., "Unsitiodesdefigma(21).zip")
+        // Extract Version ID from filename
+        // Priority: (number) pattern > clean filename
         const match = file.originalname.match(/\((\d+)\)/);
-        const versionNum = match ? match[1] : `new-${Date.now()}`;
-        const versionId = `v${versionNum}`;
+        let versionId;
+
+        if (match) {
+            // Has (number) pattern: Unsitiodesdefigma(22).zip -> v22
+            versionId = `v${match[1]}`;
+        } else {
+            // No number: use cleaned filename without extension
+            // "chatbot (Community).zip" -> "chatbot-community"
+            const cleanName = file.originalname
+                .replace(/\.zip$/i, '')           // Remove .zip
+                .replace(/[()]/g, '')              // Remove parentheses
+                .replace(/\s+/g, '-')              // Spaces to dashes
+                .toLowerCase()
+                .substring(0, 30);                // Limit length
+
+            versionId = `v${cleanName}`;
+        }
+
         const targetDir = path.join(LABS_DIR, versionId);
 
         broadcastLog('system', `📦 Processing upload for ${versionId}...`, 'info');
