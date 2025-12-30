@@ -89,6 +89,12 @@ function App() {
             .then(res => setVersions(res.data))
             .catch(err => console.error('Failed to load versions:', err));
 
+        // Load viewMode from localStorage
+        const savedViewMode = localStorage.getItem('lab-manager-view-mode');
+        if (savedViewMode && ['grid-small', 'grid-medium', 'grid-large', 'list', 'list-detailed'].includes(savedViewMode)) {
+            setViewMode(savedViewMode as ViewMode);
+        }
+
         socketRef.current = io(SOCKET_URL);
         socketRef.current.on('state-update', (data: Version[]) => setVersions(data));
         socketRef.current.on('stats-update', (data: ProcessStats) => setStats(data));
@@ -109,6 +115,11 @@ function App() {
 
         return () => { socketRef.current?.disconnect(); };
     }, []);
+
+    // Save viewMode to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('lab-manager-view-mode', viewMode);
+    }, [viewMode]);
 
     // Actions
     const handleStart = async (id: string, port: number) => {
