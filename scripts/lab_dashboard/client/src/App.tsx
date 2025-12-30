@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import {
     LayoutDashboard, Monitor, Terminal, Upload, Settings,
-    Shield, Menu, X, ChevronLeft, LogOut, Sun, Moon, Bell, Search,
-    Play, Square, ExternalLink, Activity, FolderOpen
+    Shield, Menu, ChevronLeft, Sun, Moon, Search,
+    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ResourceMonitor } from './components/ResourceMonitor';
 import { FileExplorer } from './components/FileExplorer';
+import { ConsoleLogs } from './components/ConsoleLogs';
+import { GitControl } from './components/GitControl';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -48,7 +49,7 @@ interface ProcessStats {
     };
 }
 
-type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer';
+type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git';
 
 // ==========================================
 // APP COMPONENT
@@ -101,8 +102,23 @@ function App() {
 
     // Render Helpers
     const renderExplorer = () => (
-        <div className="h-full">
-            <FileExplorer versionId={selectedVersion} />
+        <div className="h-full animate-in fade-in duration-300">
+            <FileExplorer
+                versionId={selectedVersion}
+                versions={versions}
+                onSelectVersion={setSelectedVersion}
+            />
+        </div>
+    );
+
+    const renderLogs = () => (
+        <div className="h-full animate-in fade-in duration-300">
+            <ConsoleLogs
+                logs={filteredLogs}
+                versionId={selectedVersion}
+                versions={versions}
+                onSelectVersion={setSelectedVersion}
+            />
         </div>
     );
 
@@ -224,42 +240,6 @@ function App() {
         </div>
     );
 
-    const renderLogs = () => (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 flex flex-col h-[calc(100vh-12rem)] shadow-2xl">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
-                <h3 className="font-bold text-white flex items-center gap-2 font-mono">
-                    <Terminal className="w-5 h-5 text-green-400" />
-                    Terminal Output
-                </h3>
-                {selectedVersion && (
-                    <span className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-xs font-mono border border-indigo-500/30">
-                        {selectedVersion}
-                    </span>
-                )}
-            </div>
-            <div className="flex-1 p-4 overflow-y-auto font-mono text-xs space-y-1 scrollbar-thin scrollbar-thumb-slate-700 bg-[#0c0c0c]">
-                {filteredLogs.length === 0 ? (
-                    <div className="text-slate-600 text-center mt-20">Waiting for logs...</div>
-                ) : (
-                    filteredLogs.map((log, i) => (
-                        <div key={i} className="flex gap-3 hover:bg-white/5 p-0.5 rounded">
-                            <span className="text-slate-600 select-none">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                            <span className={cn(
-                                "break-all",
-                                log.type === 'error' ? "text-red-400 font-bold" :
-                                    log.type === 'success' ? "text-green-400 font-bold" :
-                                        log.type === 'warn' ? "text-yellow-400" :
-                                            "text-slate-300"
-                            )}>
-                                {log.text}
-                            </span>
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-    );
-
     // Menu Items Config
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
@@ -334,19 +314,6 @@ function App() {
                 <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 px-6 flex items-center justify-between">
 
                     {/* Search */}
-                    <div className="flex-1 max-w-xl">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search environments, logs, settings..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm dark:text-white"
-                            />
-                        </div>
-                    </div>
-
                     {/* User & Theme */}
                     <div className="flex items-center gap-4 ml-4">
                         <button
@@ -370,15 +337,63 @@ function App() {
                 </header>
 
                 {/* Page Area */}
-                <main className="flex-1 p-6">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 animate-in slide-in-from-left-2 duration-300">
-                        {currentPage === 'dashboard' ? 'Overview' : currentPage === 'logs' ? 'System Logs' : currentPage === 'explorer' ? 'File System' : 'Settings'}
-                    </h1>
+                <main className="flex-1 p-6 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+                    <div className="flex items-center justify-between mb-6 animate-in slide-in-from-left-2 duration-300 shrink-0">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {currentPage === 'dashboard' ? 'Overview' :
+                                (currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git') ? 'Environment Details' : 'Settings'}
+                        </h1>
 
-                    {currentPage === 'dashboard' && renderDashboard()}
-                    {currentPage === 'logs' && renderLogs()}
-                    {currentPage === 'explorer' && renderExplorer()}
-                    {currentPage === 'settings' && <div className="text-slate-500">Settings implementation pending...</div>}
+                        {/* Environment Tabs */}
+                        {(currentPage === 'logs' || currentPage === 'explorer' || currentPage === 'git') && (
+                            <div className="flex p-1 bg-gray-100 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
+                                <button
+                                    onClick={() => setCurrentPage('logs')}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+                                        currentPage === 'logs'
+                                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                    )}
+                                >
+                                    <Terminal className="w-4 h-4" />
+                                    Terminal
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage('explorer')}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+                                        currentPage === 'explorer'
+                                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                    )}
+                                >
+                                    <FolderOpen className="w-4 h-4" />
+                                    Files
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage('git')}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+                                        currentPage === 'git'
+                                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
+                                    )}
+                                >
+                                    <GitBranch className="w-4 h-4" />
+                                    Source Control
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-1 overflow-hidden">
+                        {currentPage === 'dashboard' && <div className="h-full overflow-y-auto pr-2">{renderDashboard()}</div>}
+                        {currentPage === 'logs' && renderLogs()}
+                        {currentPage === 'explorer' && renderExplorer()}
+                        {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
+                        {currentPage === 'settings' && <div className="text-slate-500">Settings implementation pending...</div>}
+                    </div>
                 </main>
 
             </div>

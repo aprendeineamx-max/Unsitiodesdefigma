@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import {
-    Folder, FolderOpen, File, FileCode, FileJson,
-    ChevronRight, ChevronDown, Save, RefreshCw, X
+    Folder, FolderOpen, FileCode,
+    ChevronRight, ChevronDown, Save, RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
-import { getType } from 'mime'; // Or just simple extension check
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -18,42 +17,19 @@ interface FileNode {
 
 interface FileExplorerProps {
     versionId: string | null;
+    versions: any[];
+    onSelectVersion: (id: string) => void;
 }
 
-export function FileExplorer({ versionId }: FileExplorerProps) {
-    const [fileTree, setFileTree] = useState<FileNode[]>([]);
-    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+export function FileExplorer({ versionId, versions, onSelectVersion }: FileExplorerProps) {
+    const [refreshKey, setRefreshKey] = useState(0);
     const [currentFile, setCurrentFile] = useState<string | null>(null);
     const [code, setCode] = useState('');
     const [originalCode, setOriginalCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Load root files
-    useEffect(() => {
-        if (versionId) loadPath('');
-    }, [versionId]);
-
-    const loadPath = async (path: string) => {
-        if (!versionId) return;
-        try {
-            const res = await axios.get(`${API_URL}/files`, { params: { versionId, path } });
-            // Logic for simple list vs tree?
-            // For now, let's keep it simple: We fetch only current level.
-            // But to make a tree, we need to know children locally. 
-            // Let's implement a recursive Fetch on expand?
-            // Or just a simple "Navigator" that drills down?
-            // Let's try Recursive Drill Down with state merge? No, too complex for v1.
-            // Best Approach: Just store the clicked state.
-            // Actually, for a File Explorer, we need to merge children into the tree data structure.
-            // But creating a full tree UI is hard without a library.
-            // Let's use a flat list for current directory? No, that's not "VS Code like".
-            // Let's implement a simple Recursive Component `FileTreeNode`.
-            setFileTree(res.data.items);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
     const handleFileClick = async (path: string) => {
         if (!versionId) return;
@@ -80,7 +56,6 @@ export function FileExplorer({ versionId }: FileExplorerProps) {
                 content: code
             });
             setOriginalCode(code);
-            // Optional: Toast success
         } catch (err) {
             alert('Failed to save');
         } finally {
@@ -88,9 +63,9 @@ export function FileExplorer({ versionId }: FileExplorerProps) {
         }
     };
 
-    if (!versionId) return (
+    if (!versionId && versions.length === 0) return (
         <div className="flex items-center justify-center h-full text-slate-500">
-            Select an active environment to browse files.
+            Loading environments...
         </div>
     );
 
@@ -99,18 +74,43 @@ export function FileExplorer({ versionId }: FileExplorerProps) {
 
             {/* Sidebar Tree */}
             <div className="w-64 border-r border-gray-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900/50">
-                <div className="p-3 border-b border-gray-200 dark:border-slate-800 font-semibold text-xs text-gray-500 uppercase tracking-wider flex justify-between items-center">
-                    <span>Explorer</span>
-                    <button onClick={() => loadPath('')} className="p-1 hover:bg-gray-200 dark:hover:bg-slate-800 rounded"><RefreshCw className="w-3 h-3" /></button>
+                <div className="p-3 border-b border-gray-200 dark:border-slate-800 flex flex-col gap-2">
+                    <div className="flex justify-between items-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <span>Explorer</span>
+                        <button onClick={handleRefresh} className="p-1 hover:bg-gray-200 dark:hover:bg-slate-800 rounded" title="Refresh">
+                            <RefreshCw className="w-3 h-3" />
+                        </button>
+                    </div>
+
+                    <select
+                        value={versionId || ''}
+                        onChange={(e) => onSelectVersion(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-md py-1 px-2 text-sm text-gray-700 dark:text-gray-200 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    >
+                        <option value="" disabled>Select Environment</option>
+                        {versions.map(v => (
+                            <option key={v.id} value={v.id}>
+                                {v.id} ({v.status})
+                            </option>
+                        ))}
+                    </select>
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-2">
-                    <RecursiveTree
-                        versionId={versionId}
-                        path=""
-                        level={0}
-                        onFileClick={handleFileClick}
-                        selectedFile={currentFile}
-                    />
+                    {!versionId ? (
+                        <div className="text-center p-4 text-xs text-slate-400">
+                            Select an environment to view files.
+                        </div>
+                    ) : (
+                        <RecursiveTree
+                            key={`${versionId}-${refreshKey}`}
+                            versionId={versionId}
+                            path=""
+                            level={0}
+                            onFileClick={handleFileClick}
+                            selectedFile={currentFile}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -130,8 +130,8 @@ export function FileExplorer({ versionId }: FileExplorerProps) {
                                     onClick={handleSave}
                                     disabled={code === originalCode || saving}
                                     className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-colors ${code !== originalCode
-                                            ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                                            : "bg-gray-100 dark:bg-slate-800 text-gray-400 cursor-not-allowed"
+                                        ? "bg-indigo-600 hover:bg-indigo-500 text-white"
+                                        : "bg-gray-100 dark:bg-slate-800 text-gray-400 cursor-not-allowed"
                                         }`}
                                 >
                                     <Save className="w-3.5 h-3.5" />

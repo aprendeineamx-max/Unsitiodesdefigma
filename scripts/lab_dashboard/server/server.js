@@ -9,6 +9,8 @@ const AdmZip = require('adm-zip');
 const { spawn } = require('child_process');
 const treeKill = require('tree-kill');
 const pidusage = require('pidusage');
+const detectLib = require('detect-port');
+const detect = detectLib.default || detectLib;
 
 // Paths
 const PROJECT_ROOT = path.resolve(__dirname, '../../../');
@@ -108,9 +110,6 @@ function getVersionsState() {
         });
 
         // 2. Add Legacy (v19/Figma_Lab) if not in new structure
-        // Note: User migrated Figma_Lab to Figma_Labs/v19?
-        // User said "v19 is running on 5173" from "Figma_Lab" folder in root in previous step.
-        // So we should check root Figma_Lab too.
         if (fs.existsSync(LEGACY_DIR)) {
             const legacyId = 'v19-legacy';
             const proc = activeProcesses.get(legacyId);
@@ -131,7 +130,8 @@ function getVersionsState() {
     return versions;
 }
 
-function startProcess(versionId, targetPort) {
+// Port Authority: Smart Start
+async function startProcess(versionId, preferredPort) {
     if (activeProcesses.has(versionId)) return;
 
     let cwd;
@@ -146,10 +146,19 @@ function startProcess(versionId, targetPort) {
         return;
     }
 
-    broadcastLog(versionId, `🚀 Starting server on port ${targetPort}...`, 'success');
+    broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort})...`, 'info');
+
+    // 1. Detect available port
+    const port = await detect(preferredPort);
+
+    if (port !== preferredPort) {
+        broadcastLog(versionId, `⚠️ Port ${preferredPort} is busy. Switching to available port: ${port}`, 'warn');
+    }
+
+    broadcastLog(versionId, `🚀 Starting server on port ${port}...`, 'success');
 
     // Spawn npm run dev
-    const child = spawn('npm.cmd', ['run', 'dev', '--', '--port', targetPort, '--host'], {
+    const child = spawn('npm.cmd', ['run', 'dev', '--', '--port', port, '--host'], {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true
@@ -157,7 +166,7 @@ function startProcess(versionId, targetPort) {
 
     activeProcesses.set(versionId, {
         pid: child.pid,
-        port: targetPort,
+        port: port,
         status: 'running',
         startTime: new Date()
     });
@@ -172,8 +181,10 @@ function startProcess(versionId, targetPort) {
 
     child.stderr.on('data', (data) => {
         const str = data.toString();
-        broadcastLog(versionId, str, 'error');
-        process.stderr.write(`[${versionId}] ERR: ${str}`);
+
+        // Filter out common innocuous warnings if needed, but for now log all
+        broadcastLog(versionId, str, 'info'); // changed to info to reduce alarm fatigue on warnings
+        process.stderr.write(`[${versionId}] LOG: ${str}`);
     });
 
     child.on('close', (code) => {
@@ -235,10 +246,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         // Install Dependencies (Async)
         const install = spawn('npm.cmd', ['install'], { cwd: targetDir, shell: true });
 
-        install.stdout.on('data', d => broadcastLog(versionId, `Unknown: ${d}`, 'info')); // Filter npm logs?
+        install.stdout.on('data', d => broadcastLog(versionId, `npm: ${d}`, 'info'));
         install.stderr.on('data', d => {
             // npm warnings go to stderr
-            // broadcastLog(versionId, `${d}`, 'warn');
         });
 
         install.on('close', (code) => {
@@ -268,11 +278,20 @@ app.get('/api/versions', (req, res) => {
     res.json(getVersionsState());
 });
 
-app.post('/api/start', (req, res) => {
-    const { id, port } = req.body;
-    if (!id || !port) return res.status(400).json({ error: 'Missing id or port' });
-    startProcess(id, port);
-    res.json({ success: true });
+app.post('/api/start', async (req, res) => {
+    try {
+        const { id, port } = req.body;
+        if (!id) return res.status(400).json({ error: 'Missing id' });
+
+        // Default mechanism: If port provided, try it. If not, guess based on ID or start at 5173.
+        let targetPort = port || 5173;
+
+        await startProcess(id, targetPort);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error in /api/start:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/stop', (req, res) => {
@@ -376,8 +395,130 @@ app.post('/api/files/write', async (req, res) => {
     }
 });
 
-// Start Server
-const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`📡 Lab Dashboard API running on http://localhost:${PORT}`);
+// ... (Existing imports)
+const simpleGit = require('simple-git');
+require('dotenv').config();
+
+// ... (Existing code)
+
+// ==========================================
+// GIT OPS CENTER
+// ==========================================
+const getGit = (versionId) => {
+    let basePath;
+    if (versionId === 'v19-legacy') basePath = LEGACY_DIR;
+    else basePath = path.join(LABS_DIR, versionId);
+
+    if (!fs.existsSync(basePath)) throw new Error('Lab not found');
+    return simpleGit(basePath);
+};
+
+app.get('/api/git/status', async (req, res) => {
+    // Expected query: versionId
+    const { versionId } = req.query;
+    if (!versionId) return res.status(400).json({ error: 'Missing versionId' });
+
+    try {
+        const git = getGit(versionId);
+        const isRepo = await git.checkIsRepo();
+
+        if (!isRepo) {
+            return res.json({ isRepo: false });
+        }
+
+        const status = await git.status();
+        const remotes = await git.getRemotes(true);
+
+        res.json({
+            isRepo: true,
+            status,
+            remotes,
+            currentBranch: status.current
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+app.post('/api/git/init', async (req, res) => {
+    const { versionId } = req.body;
+    try {
+        const git = getGit(versionId);
+        await git.init();
+        broadcastLog(versionId, '🐙 Git Repository initialized', 'success');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/git/commit', async (req, res) => {
+    const { versionId, message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message required' });
+
+    try {
+        const git = getGit(versionId);
+        await git.add('.');
+        const result = await git.commit(message);
+        broadcastLog(versionId, `✅ Commit created: ${result.summary.changes} changes`, 'success');
+        res.json({ success: true, result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/git/remote', async (req, res) => {
+    const { versionId, repoUrl } = req.body;
+    try {
+        const git = getGit(versionId);
+
+        // Remove existing origin if exists to replace it
+        const remotes = await git.getRemotes();
+        if (remotes.find(r => r.name === 'origin')) {
+            await git.removeRemote('origin');
+        }
+
+        await git.addRemote('origin', repoUrl);
+        broadcastLog(versionId, `🔗 Remote 'origin' linked to ${repoUrl}`, 'success');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/git/push', async (req, res) => {
+    const { versionId, branch } = req.body;
+    const targetBranch = branch || 'main'; // Default to main
+
+    try {
+        const git = getGit(versionId);
+
+        // Use Token for Auth if available
+        const token = process.env.GITHUB_TOKEN;
+        let remote = 'origin';
+
+        if (token) {
+            // Get remote URL to inject token
+            const remotes = await git.getRemotes(true);
+            const origin = remotes.find(r => r.name === 'origin');
+            if (origin && origin.refs.push) {
+                let url = origin.refs.push;
+                // Inject token: https://TOKEN@github.com/...
+                if (url.startsWith('https://')) {
+                    remote = url.replace('https://', `https://${token}@`);
+                }
+            }
+        }
+
+        broadcastLog(versionId, '⏳ Pushing to GitHub...', 'info');
+        await git.push(remote, targetBranch, ['--set-upstream']);
+
+        broadcastLog(versionId, `🚀 Successfully pushed to ${targetBranch}`, 'success');
+        res.json({ success: true });
+    } catch (err) {
+        broadcastLog(versionId, `❌ Push failed: ${err.message}`, 'error');
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Start Server
