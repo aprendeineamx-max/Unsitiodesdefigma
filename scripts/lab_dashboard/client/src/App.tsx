@@ -20,7 +20,7 @@ function cn(...inputs: any[]) {
     return twMerge(clsx(inputs));
 }
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3000';
 const SOCKET_URL = 'http://localhost:3000';
 
 // ==========================================
