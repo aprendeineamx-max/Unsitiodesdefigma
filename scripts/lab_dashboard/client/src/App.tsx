@@ -4,7 +4,8 @@ import axios from 'axios';
 import {
     LayoutDashboard, Monitor, Terminal, Upload, Settings,
     Shield, Menu, ChevronLeft, Sun, Moon, Search,
-    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch, Cloud, Bug
+    Play, Square, ExternalLink, Activity, FolderOpen, GitBranch, Cloud, Bug, Trash2,
+    Grid3x3, List, LayoutGrid, Table
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -14,6 +15,8 @@ import { ConsoleLogs } from './components/ConsoleLogs';
 import { GitControl } from './components/GitControl';
 import { CloudBackup } from './components/CloudBackup';
 import { BrowserConsole } from './components/BrowserConsole';
+import { TrashView } from './components/TrashView';
+import { SettingsView } from './components/SettingsView';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -48,10 +51,11 @@ interface ProcessStats {
         memory: number;
         elapsed: number;
         timestamp: number;
-    };
+    }
 }
 
-type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud' | 'console';
+type AdminPage = 'dashboard' | 'logs' | 'settings' | 'explorer' | 'git' | 'cloud' | 'console' | 'trash';
+type ViewMode = 'grid-small' | 'grid-medium' | 'grid-large' | 'list' | 'list-detailed';
 
 // ==========================================
 // APP COMPONENT
@@ -71,6 +75,10 @@ function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [portInputs, setPortInputs] = useState<Record<string, number>>({});
     const [smartPortEnabled, setSmartPortEnabled] = useState<Record<string, boolean>>({});
+
+    // View & Selection State
+    const [viewMode, setViewMode] = useState<ViewMode>('grid-medium');
+    const [selectedZips, setSelectedZips] = useState<string[]>([]);
 
     const socketRef = useRef<any>(null);
 
@@ -133,6 +141,64 @@ function App() {
             setUploading(false);
             e.target.value = '';
         }
+    };
+
+    // Selection & Batch Actions
+    const handleZipSelect = (id: string, ctrlKey: boolean) => {
+        if (!ctrlKey) {
+            setSelectedZips([id]);
+        } else {
+            setSelectedZips(prev =>
+                prev.includes(id)
+                    ? prev.filter(z => z !== id)
+                    : [...prev, id]
+            );
+        }
+    };
+
+    const handleSelectAll = () => {
+        setSelectedZips(filteredVersions.map(v => v.id));
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedZips([]);
+    };
+
+    const handleBatchArchive = async () => {
+        if (!confirm(`Archive ${selectedZips.length} ZIPs?`)) return;
+        for (const id of selectedZips) {
+            try {
+                await axios.post(`${API_URL}/api/archive`, { version: id });
+            } catch (err) {
+                console.error(`Failed to archive ${id}:`, err);
+            }
+        }
+        setSelectedZips([]);
+    };
+
+    const handleBatchTrash = async () => {
+        if (!confirm(`Move ${selectedZips.length} ZIPs to Trash?`)) return;
+        for (const id of selectedZips) {
+            try {
+                await axios.post(`${API_URL}/api/trash`, { version: id });
+            } catch (err) {
+                console.error(`Failed to trash ${id}:`, err);
+            }
+        }
+        setSelectedZips([]);
+    };
+
+    const handleBatchDelete = async () => {
+        if (!confirm(`⚠️ PERMANENTLY DELETE ${selectedZips.length} ZIPs?`)) return;
+        if (!confirm(`Are you absolutely sure?`)) return;
+        for (const id of selectedZips) {
+            try {
+                await axios.post(`${API_URL}/api/delete`, { version: id });
+            } catch (err) {
+                console.error(`Failed to delete ${id}:`, err);
+            }
+        }
+        setSelectedZips([]);
     };
 
     // Derived State
@@ -514,6 +580,7 @@ function App() {
         { id: 'logs', label: 'Console Logs', icon: Terminal, color: 'text-green-500' },
         { id: 'console', label: 'Browser Console', icon: Bug, color: 'text-purple-500' },
         { id: 'explorer', label: 'File Explorer', icon: FolderOpen, color: 'text-yellow-500' },
+        { id: 'trash', label: 'Trash', icon: Trash2, color: 'text-orange-500' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-gray-500' },
     ];
 
@@ -675,7 +742,8 @@ function App() {
                         {currentPage === 'explorer' && renderExplorer()}
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
                         {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} /></div>}
-                        {currentPage === 'settings' && <div className="text-slate-500">Settings implementation pending...</div>}
+                        {currentPage === 'trash' && <div className="h-full animate-in fade-in duration-300"><TrashView /></div>}
+                        {currentPage === 'settings' && <div className="h-full"><SettingsView stats={stats} selectedVersion={selectedVersion} /></div>}
                     </div>
                 </main>
 

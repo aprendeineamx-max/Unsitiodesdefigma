@@ -534,6 +534,183 @@ app.post('/api/delete', async (req, res) => {
 });
 
 // ==========================================
+// TRASH MANAGEMENT
+// ==========================================
+app.get('/api/trash/list', async (req, res) => {
+    try {
+        const trashDir = path.join(LABS_DIR, '_Trash');
+        
+        if (!fs.existsSync(trashDir)) {
+            return res.json([]);
+        }
+
+        const items = await fs.readdir(trashDir);
+        const dirs = [];
+        
+        for (const item of items) {
+            const itemPath = path.join(trashDir, item);
+            const stat = await fs.stat(itemPath);
+            if (stat.isDirectory()) {
+                dirs.push({ id: item });
+            }
+        }
+        
+        res.json(dirs);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/restore', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        const trashPath = path.join(LABS_DIR, '_Trash', version);
+        const targetPath = path.join(LABS_DIR, version);
+
+        if (!fs.existsSync(trashPath)) {
+            return res.status(404).json({ error: 'Not found in trash' });
+        }
+
+        if (fs.existsSync(targetPath)) {
+            return res.status(409).json({ error: 'A ZIP with this name already exists' });
+        }
+
+        await fs.move(trashPath, targetPath, { overwrite: false });
+
+        broadcastLog('system', `✅ Restored ${version} from Trash`, 'success');
+        broadcastState();
+
+        io.emit('action', {
+            type: 'ZIP_RESTORED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { from: '_Trash' }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/trash/empty', async (req, res) => {
+    try {
+        const trashDir = path.join(LABS_DIR, '_Trash');
+        
+        if (!fs.existsSync(trashDir)) {
+            return res.json({ success: true, deleted: 0 });
+        }
+
+        const items = await fs.readdir(trashDir);
+        let deletedCount = 0;
+
+        for (const item of items) {
+            const itemPath = path.join(trashDir, item);
+            await fs.remove(itemPath);
+            deletedCount++;
+        }
+
+        broadcastLog('system', `🗑️ Emptied trash - ${deletedCount} items deleted`, 'info');
+        broadcastState();
+
+        io.emit('action', {
+            type: 'TRASH_EMPTIED',
+            timestamp: new Date().toISOString(),
+            data: { deletedCount }
+        });
+
+        res.json({ success: true, deleted: deletedCount });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// TRASH MANAGEMENT
+// ==========================================
+app.get('/api/trash/list', async (req, res) => {
+    try {
+        const trashDir = path.join(LABS_DIR, '_Trash');
+        if (!fs.existsSync(trashDir)) {
+            return res.json([]);
+        }
+        const items = await fs.readdir(trashDir);
+        const dirs = [];
+        for (const item of items) {
+            const itemPath = path.join(trashDir, item);
+            const stat = await fs.stat(itemPath);
+            if (stat.isDirectory()) {
+                dirs.push({ id: item });
+            }
+        }
+        res.json(dirs);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/restore', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+        const trashPath = path.join(LABS_DIR, '_Trash', version);
+        const targetPath = path.join(LABS_DIR, version);
+        if (!fs.existsSync(trashPath)) {
+            return res.status(404).json({ error: 'Not found in trash' });
+        }
+        if (fs.existsSync(targetPath)) {
+            return res.status(409).json({ error: 'A ZIP with this name already exists' });
+        }
+        await fs.move(trashPath, targetPath, { overwrite: false });
+        broadcastLog('system', `✅ Restored ${version} from Trash`, 'success');
+        broadcastState();
+        io.emit('action', {
+            type: 'ZIP_RESTORED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { from: '_Trash' }
+        });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/trash/empty', async (req, res) => {
+    try {
+        const trashDir = path.join(LABS_DIR, '_Trash');
+        if (!fs.existsSync(trashDir)) {
+            return res.json({ success: true, deleted: 0 });
+        }
+        const items = await fs.readdir(trashDir);
+        let deletedCount = 0;
+        for (const item of items) {
+            const itemPath = path.join(trashDir, item);
+            await fs.remove(itemPath);
+            deletedCount++;
+        }
+        broadcastLog('system', `🗑️ Emptied trash - ${deletedCount} items deleted`, 'info');
+        broadcastState();
+        io.emit('action', {
+            type: 'TRASH_EMPTIED',
+            timestamp: new Date().toISOString(),
+            data: { deletedCount }
+        });
+        res.json({ success: true, deleted: deletedCount });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // BULK OPERATIONS
 // ==========================================
 app.post('/api/bulk/start', async (req, res) => {
@@ -543,57 +720,57 @@ app.post('/api/bulk/start', async (req, res) => {
             return res.status(400).json({ error: 'Missing or invalid versions array' });
         }
 
-        broadcastLog('system', `🚀 Bulk start requested for ${versions.length} ZIPs`, 'info');
 
-        const basePort = startPort || 5200;
-        const results = [];
 
-        if (parallel) {
-            // Start all simultaneously
-            const promises = versions.map((version, index) =>
-                startProcess(version, basePort + index)
-                    .then(() => ({ version, success: true }))
-                    .catch((err) => ({ version, success: false, error: err.message }))
-            );
-            const settled = await Promise.allSettled(promises);
-            settled.forEach((result) => {
-                if (result.status === 'fulfilled') {
-                    results.push(result.value);
-                }
-            });
-        } else {
-            // Start sequentially
-            for (let i = 0; i < versions.length; i++) {
-                const version = versions[i];
-                try {
-                    await startProcess(version, basePort + i);
-                    results.push({ version, success: true });
-                    // Small delay between sequential starts
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                } catch (err) {
-                    results.push({ version, success: false, error: err.message });
-                }
+    const basePort = startPort || 5200;
+    const results = [];
+
+    if (parallel) {
+        // Start all simultaneously
+        const promises = versions.map((version, index) =>
+            startProcess(version, basePort + index)
+                .then(() => ({ version, success: true }))
+                .catch((err) => ({ version, success: false, error: err.message }))
+        );
+        const settled = await Promise.allSettled(promises);
+        settled.forEach((result) => {
+            if (result.status === 'fulfilled') {
+                results.push(result.value);
+            }
+        });
+    } else {
+        // Start sequentially
+        for (let i = 0; i < versions.length; i++) {
+            const version = versions[i];
+            try {
+                await startProcess(version, basePort + i);
+                results.push({ version, success: true });
+                // Small delay between sequential starts
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (err) {
+                results.push({ version, success: false, error: err.message });
             }
         }
-
-        // Emit bulk action event
-        io.emit('action', {
-            type: 'BULK_START',
-            versionIds: versions,
-            timestamp: new Date().toISOString(),
-            data: { results }
-        });
-
-        broadcastLog('system', `✅ Bulk start completed: ${results.filter(r => r.success).length}/${versions.length} successful`, 'success');
-
-        res.json({
-            success: true,
-            results
-        });
-    } catch (err) {
-        console.error('Bulk start error:', err);
-        res.status(500).json({ error: err.message });
     }
+
+    // Emit bulk action event
+    io.emit('action', {
+        type: 'BULK_START',
+        versionIds: versions,
+        timestamp: new Date().toISOString(),
+        data: { results }
+    });
+
+    broadcastLog('system', `✅ Bulk start completed: ${results.filter(r => r.success).length}/${versions.length} successful`, 'success');
+
+    res.json({
+        success: true,
+        results
+    });
+} catch (err) {
+    console.error('Bulk start error:', err);
+    res.status(500).json({ error: err.message });
+}
 });
 
 app.post('/api/bulk/stop', async (req, res) => {
