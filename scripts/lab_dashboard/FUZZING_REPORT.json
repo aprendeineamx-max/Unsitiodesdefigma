@@ -1,0 +1,443 @@
+[
+  {
+    "iteration": 1,
+    "target": "/api/archive",
+    "method": "POST",
+    "payload_type": "<class 'dict'>",
+    "status": 400,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 2,
+    "target": "/api/trash",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 3,
+    "target": "/api/start",
+    "method": "GET",
+    "payload_type": "<class 'str'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 4,
+    "target": "/api/trash",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 5,
+    "target": "/api/start",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 6,
+    "target": "/api/health/vINVALID",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 200,
+    "server_survived": true,
+    "result": "ACCEPTED (Unexpected)"
+  },
+  {
+    "iteration": 7,
+    "target": "/api/stop",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 8,
+    "target": "/api/start",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 9,
+    "target": "/api/health/vINVALID",
+    "method": "POST",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 10,
+    "target": "/api/versions",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 11,
+    "target": "/api/trash",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 12,
+    "target": "/api/restore",
+    "method": "POST",
+    "payload_type": "<class 'dict'>",
+    "status": 400,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 13,
+    "target": "/api/versions",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 200,
+    "server_survived": true,
+    "result": "ACCEPTED (Unexpected)"
+  },
+  {
+    "iteration": 14,
+    "target": "/api/trash",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 15,
+    "target": "/api/versions",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 16,
+    "target": "/api/archive",
+    "method": "POST",
+    "payload_type": "<class 'dict'>",
+    "status": 400,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 17,
+    "target": "/api/start",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 18,
+    "target": "/api/config/vINVALID",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 19,
+    "target": "/api/health/vINVALID",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 20,
+    "target": "/api/archive",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 21,
+    "target": "/api/trash",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 22,
+    "target": "/api/start",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 23,
+    "target": "/api/start",
+    "method": "PATCH",
+    "payload_type": "<class 'str'>",
+    "status": 400,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 24,
+    "target": "/api/stop",
+    "method": "POST",
+    "payload_type": "<class 'str'>",
+    "status": 400,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 25,
+    "target": "/api/trash/empty",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 26,
+    "target": "/api/health/vINVALID",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 200,
+    "server_survived": true,
+    "result": "ACCEPTED (Unexpected)"
+  },
+  {
+    "iteration": 27,
+    "target": "/api/start",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 28,
+    "target": "/api/versions",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 29,
+    "target": "/api/bulk/start",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 30,
+    "target": "/api/stop",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 31,
+    "target": "/api/trash/empty",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 32,
+    "target": "/api/trash/empty",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 33,
+    "target": "/api/trash/empty",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 34,
+    "target": "/api/bulk/start",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 35,
+    "target": "/api/stop",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 36,
+    "target": "/api/trash/empty",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 37,
+    "target": "/api/health/vINVALID",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 38,
+    "target": "/api/trash/empty",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 39,
+    "target": "/api/stop",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 40,
+    "target": "/api/trash/empty",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 41,
+    "target": "/api/health/vINVALID",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 42,
+    "target": "/api/config/vINVALID",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 43,
+    "target": "/api/start",
+    "method": "GET",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 44,
+    "target": "/api/start",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 45,
+    "target": "/api/restore",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 46,
+    "target": "/api/stop",
+    "method": "DELETE",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 47,
+    "target": "/api/start",
+    "method": "PATCH",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  },
+  {
+    "iteration": 48,
+    "target": "/api/trash/empty",
+    "method": "POST",
+    "payload_type": "<class 'dict'>",
+    "status": "CONN_FAIL",
+    "server_survived": false,
+    "result": "timed out"
+  },
+  {
+    "iteration": 49,
+    "target": "/api/stop",
+    "method": "PUT",
+    "payload_type": "<class 'dict'>",
+    "status": 404,
+    "server_survived": true,
+    "result": "HANDLED (Client Error)"
+  }
+]
