@@ -668,6 +668,224 @@ app.post('/api/bulk/restart', async (req, res) => {
 });
 
 // ==========================================
+// HEALTH & MONITORING
+// ==========================================
+app.get('/api/health/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const proc = activeProcesses.get(versionId);
+
+        if (!proc) {
+            return res.json({
+                status: 'stopped',
+                healthy: false,
+                checks: {
+                    process: 'not running',
+                    port: 'n/a',
+                    response: 'n/a'
+                },
+                lastCheck: new Date().toISOString()
+            });
+        }
+
+        // Check if process is still alive
+        let processAlive = false;
+        try {
+            process.kill(proc.pid, 0); // Signal 0 = check if alive
+            processAlive = true;
+        } catch (err) {
+            processAlive = false;
+        }
+
+        // Check if port is responding
+        let portResponding = false;
+        let responseTime = null;
+        try {
+            const startTime = Date.now();
+            await axios.get(`http://localhost:${proc.port}`, { timeout: 3000 });
+            responseTime = Date.now() - startTime;
+            portResponding = true;
+        } catch (err) {
+            portResponding = false;
+        }
+
+        const healthy = processAlive && portResponding;
+
+        res.json({
+            status: proc.status,
+            healthy,
+            checks: {
+                process: processAlive ? 'running' : 'dead',
+                port: portResponding ? 'responding' : 'not responding',
+                response: responseTime ? `${responseTime}ms` : 'timeout',
+                pid: proc.pid,
+                port: proc.port,
+                uptime: Math.floor((Date.now() - proc.startTime.getTime()) / 1000) + 's'
+            },
+            lastCheck: new Date().toISOString()
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/metrics/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const proc = activeProcesses.get(versionId);
+
+        if (!proc) {
+            return res.status(404).json({ error: 'Process not running' });
+        }
+
+        // Get CPU and memory stats
+        const stats = await pidusage(proc.pid);
+
+        res.json({
+            versionId,
+            pid: proc.pid,
+            port: proc.port,
+            status: proc.status,
+            cpu: {
+                current: parseFloat(stats.cpu.toFixed(2)),
+                unit: '%'
+            },
+            memory: {
+                current: Math.round(stats.memory / 1024 / 1024),
+                unit: 'MB'
+            },
+            uptime: {
+                seconds: Math.floor((Date.now() - proc.startTime.getTime()) / 1000),
+                formatted: formatUptime(Date.now() - proc.startTime.getTime())
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Helper function for uptime formatting
+function formatUptime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+}
+
+// Store auto-restart configurations
+const autoRestartConfigs = new Map();
+
+app.post('/api/automation/auto-restart', (req, res) => {
+    try {
+        const { version, enabled, maxRetries, retryDelay } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        if (enabled) {
+            autoRestartConfigs.set(version, {
+                enabled: true,
+                maxRetries: maxRetries || 3,
+                retryDelay: retryDelay || 5000,
+                retryCount: 0
+            });
+            broadcastLog('system', `🔄 Auto-restart enabled for ${version} (max ${maxRetries || 3} retries)`, 'info');
+        } else {
+            autoRestartConfigs.delete(version);
+            broadcastLog('system', `❌ Auto-restart disabled for ${version}`, 'info');
+        }
+
+        res.json({ success: true, config: autoRestartConfigs.get(version) || { enabled: false } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/automation/auto-restart/:versionId', (req, res) => {
+    const { versionId } = req.params;
+    const config = autoRestartConfigs.get(versionId);
+    res.json(config || { enabled: false });
+});
+
+// ==========================================
+// CONFIGURATION MANAGEMENT
+// ==========================================
+app.get('/api/config/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const viteConfigPath = path.join(LABS_DIR, versionId, 'vite.config.ts');
+        const packageJsonPath = path.join(LABS_DIR, versionId, 'package.json');
+
+        const config = {};
+
+        // Read vite.config if exists
+        if (fs.existsSync(viteConfigPath)) {
+            const viteConfig = await fs.readFile(viteConfigPath, 'utf-8');
+            config.viteConfig = viteConfig;
+        }
+
+        // Read package.json
+        if (fs.existsSync(packageJsonPath)) {
+            const pkgJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+            config.packageJson = pkgJson;
+        }
+
+        res.json(config);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/env/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const envPath = path.join(LABS_DIR, versionId, '.env');
+
+        if (!fs.existsSync(envPath)) {
+            return res.json({});
+        }
+
+        const envContent = await fs.readFile(envPath, 'utf-8');
+        const envVars = {};
+
+        envContent.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith('#')) {
+                const [key, ...valueParts] = trimmed.split('=');
+                if (key) {
+                    envVars[key.trim()] = valueParts.join('=').trim();
+                }
+            }
+        });
+
+        res.json(envVars);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/env/:versionId', async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const envVars = req.body;
+        const envPath = path.join(LABS_DIR, versionId, '.env');
+
+        const envLines = Object.entries(envVars).map(([key, value]) => `${key}=${value}`);
+        await fs.writeFile(envPath, envLines.join('\n'), 'utf-8');
+
+        broadcastLog('system', `📝 Environment variables updated for ${versionId}`, 'success');
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
 // FILE SYSTEM API
 // ==========================================
 app.get('/api/files', async (req, res) => {
