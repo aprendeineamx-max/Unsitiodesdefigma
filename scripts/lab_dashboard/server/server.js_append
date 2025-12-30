@@ -1,0 +1,33 @@
+
+        if (!fs.existsSync(sourcePath)) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        // Stop process if running
+        stopProcess(version);
+
+        // Permanently delete
+        await fs.remove(sourcePath);
+
+        broadcastLog('system', `❌ Permanently deleted ${version}`, 'error');
+        broadcastState();
+
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_DELETED',
+            versionId: version,
+            timestamp: new Date().toISOString()
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log(`📡 Lab Dashboard API running on http://localhost:${PORT}`);
+    broadcastLog('system', `🚀 Server started on port ${PORT}`, 'success');
+});
