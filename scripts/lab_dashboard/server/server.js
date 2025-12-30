@@ -494,6 +494,50 @@ app.get('/api/archive/list', async (req, res) => {
     }
 });
 
+
+// ==========================================
+// UNARCHIVE ENDPOINT (Injected)
+// ==========================================
+app.post('/api/unarchive', async (req, res) => {
+    try {
+        const { version } = req.body;
+        if (!version) return res.status(400).json({ error: 'Missing version' });
+
+        const archivePath = path.join(LABS_DIR, '_Archive', version);
+        const targetPath = path.join(LABS_DIR, version);
+
+        if (!fs.existsSync(archivePath)) {
+            return res.status(404).json({ error: 'Not found in archive' });
+        }
+
+        if (fs.existsSync(targetPath)) {
+            return res.status(409).json({ error: 'A ZIP with this name already exists in active labs' });
+        }
+
+        // Ensure target parent dir exists (should exist)
+        await fs.ensureDir(LABS_DIR);
+
+        // Move from Archive to Labs
+        await fs.move(archivePath, targetPath, { overwrite: false });
+
+        broadcastLog('system', `✅ Unarchived ${version}`, 'success');
+        broadcastState();
+
+        io.emit('action', {
+            type: 'ZIP_RESTORED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { from: '_Archive' }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 app.post('/api/trash', async (req, res) => {
     try {
         const { version } = req.body;
