@@ -1,0 +1,13 @@
+/* Main CSS Entry Point - Platzi Clone */
+
+/* Import fonts first */
+@import './fonts.css';
+
+/* Import Tailwind CSS with configuration */
+@import './tailwind.css';
+
+/* Import custom theme and utilities */
+@import './theme.css';
+
+/* Import markdown viewer styles */
+@import './markdown.css';

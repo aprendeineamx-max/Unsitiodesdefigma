@@ -1,0 +1,51 @@
+{
+  "short_name": "Platzi",
+  "name": "Platzi - Plataforma de Educación Online",
+  "description": "Aprende desarrollo web, diseño, data science y más con cursos profesionales",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#98ca3f",
+  "background_color": "#121f3d",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["education", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "type": "image/png",
+      "sizes": "1280x720"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mis Cursos",
+      "short_name": "Cursos",
+      "description": "Ver mis cursos en progreso",
+      "url": "/learning",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Feed",
+      "short_name": "Feed",
+      "description": "Ver el feed de la comunidad",
+      "url": "/feed",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

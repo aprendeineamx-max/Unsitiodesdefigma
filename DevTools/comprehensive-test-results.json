@@ -1,0 +1,2203 @@
+{
+  "timestamp": "2025-12-30T10:42:04.575Z",
+  "totalVersions": 27,
+  "totalTests": 270,
+  "totalPassed": 260,
+  "totalFailed": 10,
+  "versions": {
+    "v1": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": false,
+            "hasPackageJson": false
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091324623",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091325017"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 1
+          }
+        }
+      },
+      "passed": 9,
+      "failed": 1
+    },
+    "v10": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091325380",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091325777"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v11": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091326179",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091327125"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v12": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091327931",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091328837"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v13": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091329634",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091330576"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 2
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v14": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091331191",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091332656"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v15": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091333889",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091336227"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v16": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091336721",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091337617"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v17": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091338751",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091339878"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v18": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091340580",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091341064"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v19": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091341858",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091342895"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v2": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091343288",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091344025"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 160
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v20": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091344584",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091345821"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v21": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091346338",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091348605"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v22": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091349472",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091350263"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v3": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091350744",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091352289"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 164
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v4": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091353103",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091354436"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 164
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v5": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091355228",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091356202"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 165
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v6": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091356564",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091357582"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 166
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v7": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091358264",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091359473"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 166
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v8": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091360213",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091360879"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "v9": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091361201",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091361597"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 170
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "vnew-1767088813147": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": false,
+            "hasPackageJson": false
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091362286",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091363478"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 1
+          }
+        }
+      },
+      "passed": 9,
+      "failed": 1
+    },
+    "vnew-1767088813945": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "pass",
+          "result": {
+            "total": 80,
+            "dependencies": 76,
+            "devDependencies": 4
+          }
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": true,
+            "hasPackageJson": true
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091365095",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091366145"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 165
+          }
+        }
+      },
+      "passed": 10,
+      "failed": 0
+    },
+    "_Backups": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": false,
+            "hasPackageJson": false
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "pass",
+          "result": {
+            "snapshotId": "test_1767091367603",
+            "size": "NaN KB"
+          }
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "backup-create": {
+          "status": "fail",
+          "error": "Request failed with status code 500"
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 0
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 25
+          }
+        }
+      },
+      "passed": 8,
+      "failed": 2
+    },
+    "_Snapshots": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": false,
+            "hasPackageJson": false
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "fail",
+          "error": "Request failed with status code 500"
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 0
+          }
+        },
+        "backup-create": {
+          "status": "pass",
+          "result": {
+            "backupId": "backup_1767091384586"
+          }
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 1
+          }
+        },
+        "terminal-exec": {
+          "status": "pass",
+          "result": {
+            "exitCode": 0,
+            "success": true
+          }
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 26
+          }
+        }
+      },
+      "passed": 8,
+      "failed": 2
+    },
+    "v19-legacy": {
+      "status": "stopped",
+      "port": null,
+      "tests": {
+        "health": {
+          "status": "pass",
+          "result": {
+            "healthy": false,
+            "checks": {
+              "process": "not running",
+              "port": "n/a",
+              "response": "n/a"
+            }
+          }
+        },
+        "dependencies": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "config": {
+          "status": "pass",
+          "result": {
+            "hasViteConfig": false,
+            "hasPackageJson": false
+          }
+        },
+        "env-get": {
+          "status": "pass",
+          "result": {
+            "varsCount": 0
+          }
+        },
+        "snapshot-create": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "snapshot-list": {
+          "status": "pass",
+          "result": {
+            "count": 0
+          }
+        },
+        "backup-create": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "backup-list": {
+          "status": "pass",
+          "result": {
+            "count": 0
+          }
+        },
+        "terminal-exec": {
+          "status": "fail",
+          "error": "Request failed with status code 404"
+        },
+        "files-list": {
+          "status": "pass",
+          "result": {
+            "itemsCount": 174
+          }
+        }
+      },
+      "passed": 6,
+      "failed": 4
+    }
+  },
+  "summary": {
+    "totalTests": 270,
+    "totalPassed": 260,
+    "totalFailed": 10,
+    "passRate": "96.30%",
+    "byTest": {
+      "health": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      },
+      "dependencies": {
+        "passed": 22,
+        "failed": 5,
+        "total": 27,
+        "passRate": "81.48%"
+      },
+      "config": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      },
+      "env-get": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      },
+      "snapshot-create": {
+        "passed": 25,
+        "failed": 2,
+        "total": 27,
+        "passRate": "92.59%"
+      },
+      "snapshot-list": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      },
+      "backup-create": {
+        "passed": 25,
+        "failed": 2,
+        "total": 27,
+        "passRate": "92.59%"
+      },
+      "backup-list": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      },
+      "terminal-exec": {
+        "passed": 26,
+        "failed": 1,
+        "total": 27,
+        "passRate": "96.30%"
+      },
+      "files-list": {
+        "passed": 27,
+        "failed": 0,
+        "total": 27,
+        "passRate": "100.00%"
+      }
+    },
+    "byVersion": {}
+  },
+  "errors": [
+    {
+      "version": "v1",
+      "test": "dependencies",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "vnew-1767088813147",
+      "test": "dependencies",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "_Backups",
+      "test": "dependencies",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "_Backups",
+      "test": "backup-create",
+      "error": "Request failed with status code 500"
+    },
+    {
+      "version": "_Snapshots",
+      "test": "dependencies",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "_Snapshots",
+      "test": "snapshot-create",
+      "error": "Request failed with status code 500"
+    },
+    {
+      "version": "v19-legacy",
+      "test": "dependencies",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "v19-legacy",
+      "test": "snapshot-create",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "v19-legacy",
+      "test": "backup-create",
+      "error": "Request failed with status code 404"
+    },
+    {
+      "version": "v19-legacy",
+      "test": "terminal-exec",
+      "error": "Request failed with status code 404"
+    }
+  ]
+}
