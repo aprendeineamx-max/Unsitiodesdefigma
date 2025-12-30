@@ -30,7 +30,7 @@ interface Version {
     id: string;
     path: string;
     type: 'lab' | 'legacy';
-    status: 'running' | 'stopped' | 'starting';
+    status: 'running' | 'stopped' | 'starting' | 'installing';
     port: number | null;
     pid: number | null;
 }
@@ -269,10 +269,12 @@ function App() {
                                 </div>
 
                                 {/* Startup Progress Section */}
-                                {v.status === 'starting' && (
+                                {(v.status === 'starting' || v.status === 'installing') && (
                                     <div className="mt-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold text-indigo-400">Starting...</span>
+                                            <span className="text-xs font-semibold text-indigo-400">
+                                                {v.status === 'installing' ? '📦 Installing...' : '🚀 Starting...'}
+                                            </span>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
                                             </div>
@@ -321,6 +323,7 @@ function App() {
                                 <div className="flex gap-2">
                                     {v.status === 'stopped' ? (
                                         <button
+                                            disabled={false}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const port = smartPortEnabled[v.id]
@@ -328,9 +331,17 @@ function App() {
                                                     : (portInputs[v.id] || (v.id.includes('v19') ? 5173 : 5174));
                                                 handleStart(v.id, port);
                                             }}
-                                            className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                                            className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <Play className="w-4 h-4" /> Start
+                                        </button>
+                                    ) : v.status === 'starting' || v.status === 'installing' ? (
+                                        <button
+                                            disabled={true}
+                                            className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md font-semibold text-sm flex items-center justify-center gap-2 opacity-75 cursor-wait"
+                                        >
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            {v.status === 'installing' ? 'Installing' : 'Starting'}
                                         </button>
                                     ) : (
                                         <>

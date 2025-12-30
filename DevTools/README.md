@@ -4,39 +4,42 @@ Herramientas de desarrollo para facilitar el trabajo con Lab Manager.
 
 ## Scripts Disponibles
 
-### 🔄 `restart-backend.bat`
-Reinicia solo el servidor backend (puerto 3000).
+### ⚡ Scripts PowerShell (Recomendados - Se ejecutan en el IDE)
 
-**Uso:**
-```bash
-# Doble clic o desde terminal
-DevTools\restart-backend.bat
+#### `restart-backend.ps1`
+Reinicia solo el servidor backend (puerto 3000) en la terminal del IDE.
+
+**Uso en VS Code:**
+```powershell
+# Clic derecho en el archivo → Run in Integrated Terminal
+# O desde terminal integrada:
+.\DevTools\restart-backend.ps1
 ```
 
-### 🎨 `restart-frontend.bat`
-Reinicia solo el servidor frontend (puerto 5175).
+#### `restart-frontend.ps1`
+Reinicia solo el servidor frontend (puerto 5175) en la terminal del IDE.
 
 **Uso:**
-```bash
-DevTools\restart-frontend.bat
+```powershell
+.\DevTools\restart-frontend.ps1
 ```
 
-### ⚡ `restart-all.bat`
-Reinicia todo el sistema (backend + frontend) en un solo comando.
+### 🪟 Scripts BAT (Para uso desde explorador)
 
-**Uso:**
-```bash
-DevTools\restart-all.bat
-```
+También disponibles si prefieres doble clic desde explorador de archivos:
+- `restart-backend.bat` - Abre ventana nueva para backend
+- `restart-frontend.bat` - Abre ventana nueva para frontend  
+- `restart-all.bat` - Reinicia ambos en ventanas nuevas
 
 ## Cuándo Usar
 
-- **Después de editar `server.js`**: Usa `restart-backend.bat`
-- **Después de editar componentes React**: Generalmente auto-reload, pero puedes usar `restart-frontend.bat`
-- **Para un restart limpio completo**: Usa `restart-all.bat`
+- **Después de editar `server.js`**: Usa `restart-backend.ps1`
+- **Después de editar componentes React**: Generalmente auto-reload, pero puedes usar `restart-frontend.ps1`
+- **Para un restart limpio completo**: Ejecuta ambos scripts
 
 ## Notas
 
-- Los scripts matan procesos existentes antes de iniciar nuevos
-- Cada script abre una nueva ventana de terminal para monitorear logs
-- Esperan unos segundos entre pasos para evitar conflictos de puerto
+- Los scripts PowerShell (.ps1) **NO abren ventanas emergentes** - se ejecutan en la terminal del IDE
+- Los scripts BAT (.bat) abren ventanas nuevas - útiles si ejecutas desde explorador
+- Todos matan procesos existentes antes de iniciar nuevos para evitar EADDRINUSE
+
