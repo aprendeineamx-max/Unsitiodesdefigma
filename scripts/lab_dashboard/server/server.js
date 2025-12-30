@@ -167,6 +167,58 @@ async function startProcess(versionId, preferredPort) {
         return;
     }
 
+    // Check if node_modules exists
+    const nodeModulesPath = path.join(cwd, 'node_modules');
+    const needsInstall = !fs.existsSync(nodeModulesPath);
+
+    if (needsInstall) {
+        broadcastLog(versionId, `📦 Dependencies missing. Installing automatically...`, 'warn');
+
+        // Run npm install and wait for completion
+        try {
+            await new Promise((resolve, reject) => {
+                const inst = spawn('npm.cmd', ['install'], {
+                    cwd,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    shell: true
+                });
+
+                inst.stdout.on('data', (d) => {
+                    const msg = d.toString();
+                    if (msg.includes('added') || msg.includes('packages')) {
+                        broadcastLog(versionId, msg.trim(), 'info');
+                    }
+                });
+
+                inst.stderr.on('data', (d) => {
+                    const msg = d.toString();
+                    if (msg.toLowerCase().includes('warn')) {
+                        broadcastLog(versionId, msg.trim(), 'warn');
+                    }
+                });
+
+                inst.on('close', (code) => {
+                    if (code === 0) {
+                        broadcastLog(versionId, `✅ Dependencies installed successfully!`, 'success');
+                        resolve();
+                    } else {
+                        broadcastLog(versionId, `❌ Install failed with code ${code}`, 'error');
+                        reject(new Error(`npm install failed with code ${code}`));
+                    }
+                });
+
+                inst.on('error', (err) => {
+                    broadcastLog(versionId, `❌ Install error: ${err.message}`, 'error');
+                    reject(err);
+                });
+            });
+        } catch (err) {
+            broadcastLog(versionId, `Installation failed. Cannot start server.`, 'error');
+            return;
+        }
+    }
+
+    // Continue with server start (whether we just installed or dependencies already existed)
     broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort === 0 ? 'auto' : preferredPort})...`, 'info');
 
     // 1. Detect available port (use 5174 as base for auto-detect when port=0)
