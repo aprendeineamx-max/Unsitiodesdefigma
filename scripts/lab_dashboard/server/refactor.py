@@ -23,13 +23,10 @@ class ServerRefactorizer:
         self.routes_dir = self.base_path / "routes"
         
         self.sections = {}
-        self.imports = []
-        self.helpers = []
-        self.routes = []
         
     def backup_original(self) -> str:
         """Create timestamped backup of original server.js"""
-        print("📦 Creating backup...")
+        print("[BACKUP] Creating backup...")
         
         self.backup_dir.mkdir(exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -38,12 +35,12 @@ class ServerRefactorizer:
         shutil.copy2(self.server_file, backup_file)
         shutil.copy2(self.server_file, self.backup_dir / "server-original.js")
         
-        print(f"✅ Backup created: {backup_file}")
+        print(f"[OK] Backup created: {backup_file}")
         return str(backup_file)
     
     def analyze_structure(self) -> Dict:
         """Analyze server.js structure without modifying it"""
-        print("🔍 Analyzing server.js structure...")
+        print("[ANALYZE] Analyzing server.js structure...")
         
         with open(self.server_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -83,16 +80,16 @@ class ServerRefactorizer:
         self.sections = sections
         
         # Report
-        print(f"\n📊 Found {len(sections)} sections:")
+        print(f"\n[REPORT] Found {len(sections)} sections:")
         for name, data in sections.items():
             line_count = len(data['lines'])
-            print(f"   • {name}: {line_count} lines")
+            print(f"   - {name}: {line_count} lines")
         
         return sections
     
     def extract_modules(self):
         """Extract code sections into separate module files"""
-        print("\n🔧 Extracting modules...")
+        print("\n[EXTRACT] Extracting modules...")
         
         # Create directories
         self.core_dir.mkdir(exist_ok=True)
@@ -121,7 +118,7 @@ class ServerRefactorizer:
         
         for section_name, (folder, filename) in module_map.items():
             if section_name not in self.sections:
-                print(f"   ⚠️  Section '{section_name}' not found, skipping...")
+                print(f"   [WARN] Section '{section_name}' not found, skipping...")
                 continue
             
             section_data = self.sections[section_name]
@@ -139,7 +136,7 @@ class ServerRefactorizer:
                 f.write(module_content)
             
             created_modules.append((folder, filename))
-            print(f"   ✅ Created: {folder}/{filename}")
+            print(f"   [OK] Created: {folder}/{filename}")
         
         return created_modules
     
@@ -185,7 +182,7 @@ module.exports = (dependencies) => {{
     
     def generate_new_server(self) -> str:
         """Generate new modular server.js"""
-        print("\n🏗️  Generating new server.js...")
+        print("\n[BUILD] Generating new server.js...")
         
         new_server = """console.log('DEBUG: Starting Lab Manager Server...');
 const express = require('express');
@@ -272,8 +269,8 @@ app.use('/api', require('./routes/system')(dependencies));
 // Start Server
 const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`📡 Lab Manager API running on http://localhost:${PORT}`);
-    console.log(`✨ Modular architecture loaded successfully`);
+    console.log(`LAB MANAGER API running on http://localhost:${PORT}`);
+    console.log(`Modular architecture loaded successfully`);
 });
 """
         
@@ -281,20 +278,20 @@ server.listen(PORT, '0.0.0.0', () => {
         with open(new_server_path, 'w', encoding='utf-8') as f:
             f.write(new_server)
         
-        print(f"✅ Generated: server-modular.js")
+        print(f"[OK] Generated: server-modular.js")
         return str(new_server_path)
     
     def validate_syntax(self, file_path: str) -> Tuple[bool, str]:
         """Validate JavaScript syntax using Node.js"""
-        print(f"\n🧪 Validating {file_path}...")
+        print(f"\n[TEST] Validating {file_path}...")
         
         result = os.system(f'node --check "{file_path}" 2>&1')
         
         if result == 0:
-            print("✅ Syntax valid")
+            print("[OK] Syntax valid")
             return True, "OK"
         else:
-            print("❌ Syntax errors found")
+            print("[ERROR] Syntax errors found")
             return False, "Syntax error"
     
     def create_report(self) -> str:
@@ -310,43 +307,41 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Created Modules
 
-### Core (`core/`)
-- `helpers.js` - broadcastLog, broadcastState, getVersionsState
-- `process-manager.js` - startProcess, stopProcess
-- `monitoring.js` - Stats monitoring loop
+### Core
+- helpers.js - broadcastLog, broadcastState, getVersionsState
+- process-manager.js - startProcess, stopProcess
+- monitoring.js - Stats monitoring loop
 
-### Routes (`routes/`)
-- `upload.js` - ZIP upload handling
-- `versions.js` - GET /api/versions, POST /api/start, POST /api/stop
-- `management.js` - archive, trash, delete operations
-- `trash.js` - Trash management endpoints
-- `bulk.js` - Bulk operations (start, stop, restart)
-- `health.js` - Health checks & metrics
-- `git.js` - Git operations
-- `files.js` - File system API
-- `snapshots.js` - Snapshot & time travel
-- `config.js` - Configuration management
-- `automation.js` - Auto-restart, file watching
-- `system.js` - System info & API docs
+### Routes
+- upload.js - ZIP upload handling
+- versions.js - GET /api/versions, POST /api/start, POST /api/stop
+- management.js - archive, trash, delete operations
+- trash.js - Trash management endpoints
+- bulk.js - Bulk operations
+- health.js - Health checks & metrics
+- git.js - Git operations
+- files.js - File system API
+- snapshots.js - Snapshot & time travel
+- config.js - Configuration management
+- automation.js - Auto-restart, file watching
+- system.js - System info & API docs
 
 ## Files
 
-- `server-modular.js` - New modular entry point (~150 lines)
-- `legacy/server-original.js` - Original backup
-- `server.js` - **UNCHANGED** (for safety)
+- server-modular.js - New modular entry point (~150 lines)
+- legacy/server-original.js - Original backup
+- server.js - **UNCHANGED** (for safety)
 
 ## Next Steps
 
-1. Test `server-modular.js`
-2. If successful, rename to `server.js`
-3. Keep backup in `legacy/`
+1. Test server-modular.js
+2. If successful, rename to server.js
+3. Keep backup in legacy/
 
 ## Rollback
 
-```bash
-# If anything fails:
+If anything fails:
 cp legacy/server-original.js server.js
-```
 """
         
         report_path = self.base_path / "REFACTOR_REPORT.md"
@@ -383,15 +378,15 @@ def main():
     
     print("\n" + "=" * 60)
     if valid:
-        print("✅ REFACTORIZATION COMPLETE!")
-        print(f"\n📄 Report: {report}")
-        print(f"🚀 New server: {new_server}")
-        print(f"💾 Backup: {backup_path}")
+        print("[SUCCESS] REFACTORIZATION COMPLETE!")
+        print(f"\n[REPORT] Report: {report}")
+        print(f"[NEW] New server: {new_server}")
+        print(f"[BACKUP] Backup: {backup_path}")
         print("\nTo activate:")
         print("  1. Test: node server-modular.js")
         print("  2. If OK: mv server.js server-old.js && mv server-modular.js server.js")
     else:
-        print("❌ VALIDATION FAILED")
+        print("[FAILED] VALIDATION FAILED")
         print("Original server.js unchanged (safe)")
     print("=" * 60)
 
