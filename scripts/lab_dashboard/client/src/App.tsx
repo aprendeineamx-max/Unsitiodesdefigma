@@ -299,6 +299,25 @@ function App() {
                                     </div>
                                 )}
 
+                                {/* Recent Errors Section (when stopped) */}
+                                {v.status === 'stopped' && logs.filter(log => log.versionId === v.id && log.type === 'error').length > 0 && (
+                                    <div className="mt-3 p-3 bg-red-500/5 rounded-lg border border-red-500/20">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-red-400">Recent Errors</span>
+                                        </div>
+                                        <div className="space-y-1 max-h-20 overflow-y-auto scrollbar-thin">
+                                            {logs
+                                                .filter(log => log.versionId === v.id && log.type === 'error')
+                                                .slice(-2)
+                                                .map((log, idx) => (
+                                                    <div key={`${v.id}-err-${idx}`} className="text-xs font-mono px-2 py-1 rounded text-red-300 bg-red-500/10">
+                                                        {log.text}
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex gap-2">
                                     {v.status === 'stopped' ? (
                                         <button

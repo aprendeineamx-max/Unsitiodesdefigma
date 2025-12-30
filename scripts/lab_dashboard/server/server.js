@@ -126,7 +126,7 @@ function getVersionsState() {
                     id: item,
                     path: fullPath,
                     type: 'lab',
-                    status: proc ? 'running' : 'stopped',
+                    status: proc ? (proc.status || 'running') : 'stopped',
                     port: proc ? proc.port : null,
                     pid: proc ? proc.pid : null
                 });
@@ -141,7 +141,7 @@ function getVersionsState() {
                 id: legacyId,
                 path: LEGACY_DIR,
                 type: 'legacy',
-                status: proc ? 'running' : 'stopped',
+                status: proc ? (proc.status || 'running') : 'stopped',
                 port: proc ? proc.port : null,
                 pid: proc ? proc.pid : null
             });
@@ -174,15 +174,22 @@ async function startProcess(versionId, preferredPort) {
     const nodeModulesPath = path.join(cwd, 'node_modules');
     const vitePath = path.join(cwd, 'node_modules', '.bin', 'vite.cmd');
 
-    if (!fs.existsSync(nodeModulesPath)) {
-        broadcastLog(versionId, `⚠️ node_modules not found. Please upload a complete ZIP or wait for installation to complete.`, 'error');
-        return;
+    if (!fs.existsSync(nodeModulesPath) || !fs.existsSync(vitePath)) {
+        broadcastLog(versionId, `📦 Dependencies missing. Installing automatically...`, 'warn');
+
+        return new Promise((resolve) => {
+            const inst = spawn('npm.cmd', ['install'], { cwd, stdio: ['ignore', 'pipe', 'pipe'], shell: true });
+            inst.stdout.on('data', (d) => { if (d.toString().includes('added')) broadcastLog(versionId, d.toString().trim(), 'info'); });
+            inst.on('close', (code) => {
+                if (code === 0) {
+                    broadcastLog(versionId, `✅ Installed!`, 'success');
+                    setTimeout(() => startProcess(versionId, preferredPort), 1000);
+                } else broadcastLog(versionId, `❌ Install failed`, 'error');
+                resolve();
+            });
+        });
     }
 
-    if (!fs.existsSync(vitePath)) {
-        broadcastLog(versionId, `⚠️ Vite not installed. Run "npm install" in ${versionId} directory first.`, 'error');
-        return;
-    }
 
     broadcastLog(versionId, `🛡️ Checking port availability (preferred: ${preferredPort === 0 ? 'auto' : preferredPort})...`, 'info');
 
