@@ -85,6 +85,20 @@ function App() {
         socketRef.current.on('state-update', (data: Version[]) => setVersions(data));
         socketRef.current.on('stats-update', (data: ProcessStats) => setStats(data));
         socketRef.current.on('log', (log: any) => setLogs(prev => [...prev.slice(-99), log]));
+
+        // Listen to API actions for GUI sync
+        socketRef.current.on('action', (action: any) => {
+            console.log('API Action detected:', action);
+
+            // Auto-refresh versions list when API makes changes
+            if (['ZIP_STARTED', 'ZIP_STOPPED', 'ZIP_UPLOADED', 'ZIP_DELETED', 'ZIP_ARCHIVED', 'ZIP_TRASHED', 'BULK_START', 'BULK_STOP', 'BULK_RESTART'].includes(action.type)) {
+                // Refresh versions state
+                axios.get(`${API_URL}/versions`)
+                    .then(res => setVersions(res.data))
+                    .catch(err => console.error('Failed to refresh versions:', err));
+            }
+        });
+
         return () => { socketRef.current?.disconnect(); };
     }, []);
 

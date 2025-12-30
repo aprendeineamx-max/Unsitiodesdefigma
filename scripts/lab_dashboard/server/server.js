@@ -339,6 +339,13 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
         broadcastLog('system', `✅ Extracted to ${versionId}. Ready to start!`, 'success');
 
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_UPLOADED',
+            versionId,
+            timestamp: new Date().toISOString()
+        });
+
         res.json({ success: true, versionId });
         broadcastState();
 
@@ -362,6 +369,15 @@ app.post('/api/start', async (req, res) => {
 
         let targetPort = port || 5174;
         await startProcess(version, targetPort);
+
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_STARTED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { port: targetPort }
+        });
+
         res.json({ success: true });
     } catch (err) {
         console.error('Error in /api/start:', err);
@@ -372,6 +388,14 @@ app.post('/api/start', async (req, res) => {
 app.post('/api/stop', (req, res) => {
     const { version } = req.body;
     stopProcess(version);
+
+    // Emit action event for GUI sync
+    io.emit('action', {
+        type: 'ZIP_STOPPED',
+        versionId: version,
+        timestamp: new Date().toISOString()
+    });
+
     res.json({ success: true });
 });
 
@@ -402,6 +426,14 @@ app.post('/api/archive', async (req, res) => {
 
         broadcastLog('system', `📁 Archived ${version} to Archive`, 'success');
         broadcastState();
+
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_ARCHIVED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { destination: '_Archive' }
+        });
 
         res.json({ success: true });
     } catch (err) {
@@ -435,6 +467,14 @@ app.post('/api/trash', async (req, res) => {
         broadcastLog('system', `🗑️ Moved ${version} to Trash`, 'warn');
         broadcastState();
 
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_TRASHED',
+            versionId: version,
+            timestamp: new Date().toISOString(),
+            data: { destination: '_Trash' }
+        });
+
         res.json({ success: true });
     } catch (err) {
         console.error(err);
@@ -462,9 +502,167 @@ app.post('/api/delete', async (req, res) => {
         broadcastLog('system', `❌ Permanently deleted ${version}`, 'error');
         broadcastState();
 
+        // Emit action event for GUI sync
+        io.emit('action', {
+            type: 'ZIP_DELETED',
+            versionId: version,
+            timestamp: new Date().toISOString()
+        });
+
         res.json({ success: true });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// BULK OPERATIONS
+// ==========================================
+app.post('/api/bulk/start', async (req, res) => {
+    try {
+        const { versions, startPort, parallel } = req.body;
+        if (!versions || !Array.isArray(versions)) {
+            return res.status(400).json({ error: 'Missing or invalid versions array' });
+        }
+
+        broadcastLog('system', `🚀 Bulk start requested for ${versions.length} ZIPs`, 'info');
+
+        const basePort = startPort || 5200;
+        const results = [];
+
+        if (parallel) {
+            // Start all simultaneously
+            const promises = versions.map((version, index) =>
+                startProcess(version, basePort + index)
+                    .then(() => ({ version, success: true }))
+                    .catch((err) => ({ version, success: false, error: err.message }))
+            );
+            const settled = await Promise.allSettled(promises);
+            settled.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    results.push(result.value);
+                }
+            });
+        } else {
+            // Start sequentially
+            for (let i = 0; i < versions.length; i++) {
+                const version = versions[i];
+                try {
+                    await startProcess(version, basePort + i);
+                    results.push({ version, success: true });
+                    // Small delay between sequential starts
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (err) {
+                    results.push({ version, success: false, error: err.message });
+                }
+            }
+        }
+
+        // Emit bulk action event
+        io.emit('action', {
+            type: 'BULK_START',
+            versionIds: versions,
+            timestamp: new Date().toISOString(),
+            data: { results }
+        });
+
+        broadcastLog('system', `✅ Bulk start completed: ${results.filter(r => r.success).length}/${versions.length} successful`, 'success');
+
+        res.json({
+            success: true,
+            results
+        });
+    } catch (err) {
+        console.error('Bulk start error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/bulk/stop', async (req, res) => {
+    try {
+        const { versions } = req.body;
+        if (!versions || !Array.isArray(versions)) {
+            return res.status(400).json({ error: 'Missing or invalid versions array' });
+        }
+
+        broadcastLog('system', `🛑 Bulk stop requested for ${versions.length} ZIPs`, 'info');
+
+        const results = versions.map(version => {
+            try {
+                stopProcess(version);
+                return { version, success: true };
+            } catch (err) {
+                return { version, success: false, error: err.message };
+            }
+        });
+
+        // Emit bulk action event
+        io.emit('action', {
+            type: 'BULK_STOP',
+            versionIds: versions,
+            timestamp: new Date().toISOString(),
+            data: { results }
+        });
+
+        broadcastLog('system', `✅ Bulk stop completed: ${results.filter(r => r.success).length}/${versions.length} successful`, 'success');
+
+        res.json({
+            success: true,
+            results
+        });
+    } catch (err) {
+        console.error('Bulk stop error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/bulk/restart', async (req, res) => {
+    try {
+        const { versions, delay } = req.body;
+        if (!versions || !Array.isArray(versions)) {
+            return res.status(400).json({ error: 'Missing or invalid versions array' });
+        }
+
+        const restartDelay = delay || 2000; // Default 2 seconds between restarts
+
+        broadcastLog('system', `🔄 Bulk restart requested for ${versions.length} ZIPs`, 'info');
+
+        const results = [];
+
+        for (const version of versions) {
+            try {
+                // Stop
+                stopProcess(version);
+
+                // Wait for process to fully stop
+                await new Promise(resolve => setTimeout(resolve, restartDelay));
+
+                // Start  
+                await startProcess(version, 0); // Auto-detect port
+
+                results.push({ version, success: true });
+            } catch (err) {
+                results.push({ version, success: false, error: err.message });
+            }
+        }
+
+        // Emit bulk action event
+        io.emit('action', {
+            type: 'BULK_RESTART',
+            versionIds: versions,
+            timestamp: new Date().toISOString(),
+            data: { results }
+        });
+
+        broadcastLog('system', `✅ Bulk restart completed: ${results.filter(r => r.success).length}/${versions.length} successful`, 'success');
+
+        res.json({
+            success: true,
+            results
+        });
+    } catch (err) {
+        console.error('Bulk restart error:', err);
         res.status(500).json({ error: err.message });
     }
 });
