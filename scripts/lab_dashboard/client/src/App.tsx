@@ -406,7 +406,7 @@ function App() {
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`Cancel install for ${v.id}? This will stop npm install.`)) {
-                                                            axios.post(`${API_URL}/stop`, { version: v.id })
+                                                            axios.post(`${API_URL}/api/stop`, { version: v.id })
                                                                 .catch(err => console.error('Failed to cancel install:', err));
                                                         }
                                                     }}
@@ -443,7 +443,7 @@ function App() {
                                             e.stopPropagation();
                                             if (confirm(`Archive ${v.id}? It will be moved to _Archive folder.`)) {
                                                 try {
-                                                    await axios.post(`${API_URL}/archive`, { version: v.id });
+                                                    await axios.post(`${API_URL}/api/archive`, { version: v.id });
                                                 } catch (err) {
                                                     console.error('Archive failed:', err);
                                                 }
@@ -463,7 +463,7 @@ function App() {
                                             e.stopPropagation();
                                             if (confirm(`Move ${v.id} to Trash? You can restore it later from _Trash folder.`)) {
                                                 try {
-                                                    await axios.post(`${API_URL}/trash`, { version: v.id });
+                                                    await axios.post(`${API_URL}/api/trash`, { version: v.id });
                                                 } catch (err) {
                                                     console.error('Trash failed:', err);
                                                 }
@@ -484,7 +484,7 @@ function App() {
                                             if (confirm(`⚠️ PERMANENTLY DELETE ${v.id}? This action CANNOT be undone!`)) {
                                                 if (confirm(`Are you absolutely sure? Type "${v.id}" to confirm (just kidding, click OK to delete)`)) {
                                                     try {
-                                                        await axios.post(`${API_URL}/delete`, { version: v.id });
+                                                        await axios.post(`${API_URL}/api/delete`, { version: v.id });
                                                     } catch (err) {
                                                         console.error('Delete failed:', err);
                                                     }
