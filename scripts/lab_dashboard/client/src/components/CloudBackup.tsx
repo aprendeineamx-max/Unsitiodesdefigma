@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     Cloud, Upload, Download, Trash2, RefreshCw, HardDrive,
-    File, Folder, Clock, Check, AlertCircle, Search, Grid, List
+    File, Folder, Clock, Check, AlertCircle, Search, Grid, List,
+    FileArchive, ArrowUpFromLine, Plus
 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
 
 interface Backup {
     key: string;
@@ -18,24 +20,26 @@ interface CloudBackupProps {
     versions: any[];
 }
 
+const API_URL = 'http://localhost:3000';
+
 export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions }) => {
     const [backups, setBackups] = useState<Backup[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [connected, setConnected] = useState(false);
-    const [storageInfo, setStorageInfo] = useState({ used: 0, total: 1000 });
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-    const [selectedBackups, setSelectedBackups] = useState<string[]>([]);
+    const [storageInfo, setStorageInfo] = useState({ used: 0, total: 25000 }); // Default 25GB for Vultr Object Storage
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
+    const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
 
     useEffect(() => {
         checkConnection();
-        if (versionId) loadBackups();
+        loadBackups();
     }, [versionId]);
 
     const checkConnection = async () => {
         try {
-            const res = await axios.get('http://localhost:3000/api/cloud/status');
+            const res = await axios.get(`${API_URL}/api/cloud/status`);
             setConnected(res.data.connected);
         } catch (err) {
             setConnected(false);
@@ -43,15 +47,24 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     };
 
     const loadBackups = async () => {
-        if (!versionId) return;
         setLoading(true);
         try {
-            const res = await axios.get(`http://localhost:3000/api/cloud/list/${versionId}`);
+            // If version selected, we could filter by version, but User wants "Google Drive" experience
+            // So we list ALL files and let sidebar/filter handle view
+            // Actually, let's list all if no version selected, or just version if selected?
+            // User query: "Subir archivos desde mi PC... subir zips... poder elegir documentos en nube"
+            // Suggests global view is better.
+
+            const endpoint = versionId
+                ? `${API_URL}/api/cloud/list/${versionId}`
+                : `${API_URL}/api/cloud/list`;
+
+            const res = await axios.get(endpoint);
             setBackups(res.data);
 
             // Calculate storage
             const totalSize = res.data.reduce((acc: number, b: Backup) => acc + b.size, 0);
-            setStorageInfo({ used: totalSize / (1024 * 1024), total: 1000 });
+            setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
         } catch (err) {
             console.error(err);
         } finally {
@@ -59,12 +72,33 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
     };
 
-    const handleBackup = async () => {
+    // Generic file upload
+    const onDrop = useCallback(async (acceptedFiles: File[]) => {
+        setUploading(true);
+        for (const file of acceptedFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                await axios.post(`${API_URL}/api/cloud/upload`, formData);
+            } catch (err: any) {
+                console.error(`Failed to upload ${file.name}`, err);
+                alert(`Failed to upload ${file.name}`);
+            }
+        }
+        setUploading(false);
+        loadBackups();
+    }, []);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+
+    // Version-specific Backup (if version selected)
+    const handleCreateVersionBackup = async () => {
         if (!versionId) return;
         setUploading(true);
         try {
-            await axios.post(`http://localhost:3000/api/cloud/backup/${versionId}`);
+            await axios.post(`${API_URL}/api/cloud/backup/${versionId}`);
             loadBackups();
+            alert('✅ Backup created successfully');
         } catch (err: any) {
             alert('Backup failed: ' + (err.response?.data?.error || err.message));
         } finally {
@@ -72,25 +106,24 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
     };
 
-    const handleRestore = async (backupKey: string) => {
-        if (!confirm('Restore this backup? Current version will be replaced.')) return;
+    // Import ZIP to Workspace
+    const handleImportToWorkspace = async (key: string) => {
+        if (!confirm(`Import "${key}" to your local workspace? This will create a new project.`)) return;
 
         try {
-            await axios.post('http://localhost:3000/api/cloud/restore', {
-                backupKey,
-                targetName: `${versionId}_restored_${Date.now()}`
-            });
-            alert('Backup restored successfully!');
+            const res = await axios.post(`${API_URL}/api/cloud/import`, { key });
+            alert(`✅ Project imported as "${res.data.versionId}"`);
+            // Trigger global refresh? App.tsx handles socket 'ZIP_RESTORED'/'state-update' events, so it should auto refresh sidebar
         } catch (err: any) {
-            alert('Restore failed: ' + (err.response?.data?.error || err.message));
+            alert('Import failed: ' + (err.response?.data?.error || err.message));
         }
     };
 
     const handleDelete = async (backupKey: string) => {
-        if (!confirm('Delete this backup permanently?')) return;
+        if (!confirm('Delete this file permanently from Cloud?')) return;
 
         try {
-            await axios.delete('http://localhost:3000/api/cloud/delete', {
+            await axios.delete(`${API_URL}/api/cloud/delete`, {
                 data: { backupKey }
             });
             loadBackups();
@@ -105,152 +138,179 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString();
-    };
+    const filteredBackups = backups.filter(b => {
+        const matchesSearch = b.key.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!matchesSearch) return false;
 
-    const filteredBackups = backups.filter(b =>
-        b.key.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+        if (filter === 'uploads') return b.key.includes('uploads/');
+        if (filter === 'backups') return !b.key.includes('uploads/');
+        return true;
+    });
 
-    const storagePercent = (storageInfo.used / storageInfo.total) * 100;
+    const storagePercent = Math.min((storageInfo.used / storageInfo.total) * 100, 100);
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
-                <div className="flex items-center gap-3">
-                    <Cloud className={`${connected ? 'text-green-500' : 'text-red-500'}`} size={24} />
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Vultr Cloud Storage</h2>
-                        <p className="text-xs text-gray-500 dark:text-slate-400">
-                            {connected ? '✅ Connected' : '❌ Disconnected'}
-                        </p>
-                    </div>
+        <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden">
+            {/* Sidebar / Filter Panel */}
+            <div className="w-64 border-r border-gray-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900/50">
+                <div className="p-4">
+                    <button
+                        {...getRootProps()}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
+                    >
+                        <input {...getInputProps()} />
+                        <Plus className="w-5 h-5" />
+                        <span className="text-sm">New Upload</span>
+                    </button>
+                    {versionId && (
+                        <button
+                            onClick={handleCreateVersionBackup}
+                            disabled={uploading}
+                            className="mt-3 w-full py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Cloud className="w-4 h-4" />
+                            Backup Current
+                        </button>
+                    )}
                 </div>
 
-                <div className="flex gap-2">
+                <nav className="flex-1 px-2 space-y-1">
                     <button
-                        onClick={loadBackups}
-                        disabled={!versionId}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        onClick={() => setFilter('all')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
                     >
-                        <RefreshCw size={18} className="text-gray-600 dark:text-slate-400" />
+                        <HardDrive className="w-4 h-4" /> All Files
                     </button>
                     <button
-                        onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        onClick={() => setFilter('uploads')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'uploads' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
                     >
-                        {viewMode === 'grid' ? <List size={18} /> : <Grid size={18} />}
+                        <Upload className="w-4 h-4" /> Uploads
                     </button>
+                    <button
+                        onClick={() => setFilter('backups')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'backups' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                    >
+                        <Cloud className="w-4 h-4" /> Lab Backups
+                    </button>
+                </nav>
+
+                <div className="p-4 border-t border-gray-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500">Storage Used</span>
+                        <span className="text-xs text-gray-400">{storageInfo.used.toFixed(1)}MB / 25GB</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
+                        <div
+                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-1000"
+                            style={{ width: `${storagePercent}%` }}
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Storage Bar */}
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-b border-gray-200 dark:border-slate-700">
-                <div className="flex items-center justify-between mb-2">
+            {/* Main Area */}
+            <div className="flex-1 flex flex-col">
+                {/* Header Actions */}
+                <div className="h-16 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white dark:bg-slate-900">
+                    <div className="flex items-center gap-4 text-gray-400">
+                        <Search className="w-5 h-5" />
+                        <input
+                            type="text"
+                            placeholder="Search in Cloud..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 w-64"
+                        />
+                    </div>
                     <div className="flex items-center gap-2">
-                        <HardDrive size={16} className="text-purple-600 dark:text-purple-400" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Storage Usage</span>
+                        <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-gray-400'}`}><List className="w-4 h-4" /></button>
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-gray-400'}`}><Grid className="w-4 h-4" /></button>
+                        </div>
+                        <button onClick={loadBackups} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
                     </div>
-                    <span className="text-sm text-gray-600 dark:text-slate-400">
-                        {storageInfo.used.toFixed(2)} MB / {storageInfo.total} MB
-                    </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                    <div
-                        className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${storagePercent}%` }}
-                    />
-                </div>
-            </div>
 
-            {/* Action Bar */}
-            <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center gap-3">
-                <button
-                    onClick={handleBackup}
-                    disabled={!versionId || uploading}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
-                >
-                    {uploading ? <RefreshCw className="animate-spin" size={16} /> : <Upload size={16} />}
-                    {uploading ? 'Uploading...' : 'Create Backup'}
-                </button>
-
-                <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search backups..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-slate-800 border-0 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                    />
-                </div>
-            </div>
-
-            {/* Backups List */}
-            <div className="flex-1 overflow-auto p-4">
-                {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <RefreshCw className="animate-spin text-purple-600" size={32} />
-                    </div>
-                ) : filteredBackups.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-slate-500">
-                        <Cloud size={64} className="mb-4 opacity-20" />
-                        <p className="text-lg font-medium">No backups yet</p>
-                        <p className="text-sm">Create your first backup to get started</p>
-                    </div>
-                ) : (
-                    <div className={viewMode === 'grid' ? 'grid grid-cols-3 gap-4' : 'space-y-2'}>
-                        {filteredBackups.map((backup) => (
-                            <div
-                                key={backup.key}
-                                className={`
-                                    ${viewMode === 'grid' ? 'p-4' : 'p-3'}
-                                    bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700
-                                    rounded-lg hover:shadow-md transition-shadow
-                                `}
-                            >
-                                <div className="flex items-start justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <File className="text-purple-600 dark:text-purple-400" size={20} />
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                                {backup.key.split('/').pop()}
-                                            </p>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 mt-1">
-                                                <Clock size={12} />
-                                                {formatDate(backup.lastModified)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between mt-3">
-                                    <span className="text-xs font-medium text-gray-600 dark:text-slate-400">
-                                        {formatSize(backup.size)}
-                                    </span>
-                                    <div className="flex gap-1">
-                                        <button
-                                            onClick={() => handleRestore(backup.key)}
-                                            className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-green-600 dark:text-green-400"
-                                            title="Restore"
-                                        >
-                                            <Download size={14} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(backup.key)}
-                                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600 dark:text-red-400"
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                {isDragActive && (
+                    <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm z-50 flex items-center justify-center border-4 border-blue-500 border-dashed m-4 rounded-xl">
+                        <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-2xl flex flex-col items-center">
+                            <Upload className="w-16 h-16 text-blue-500 mb-4 animate-bounce" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Drop files to upload to Cloud</h3>
+                        </div>
                     </div>
                 )}
+
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-6">
+                    {filteredBackups.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                            <Cloud className="w-24 h-24 mb-6 opacity-20" />
+                            <h3 className="text-xl font-semibold mb-2">Drive is empty</h3>
+                            <p className="text-sm">Drag and drop files here or use the "New Upload" button</p>
+                        </div>
+                    ) : (
+                        viewMode === 'grid' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {filteredBackups.map(item => (
+                                    <div key={item.key} className="group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative">
+                                        <div className="aspect-square bg-gray-50 dark:bg-slate-900 rounded-lg mb-3 flex items-center justify-center text-gray-300 dark:text-slate-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 transition-colors">
+                                            {item.key.endsWith('.zip') ? <FileArchive className="w-12 h-12" /> : <File className="w-12 h-12" />}
+                                        </div>
+                                        <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.key}>{item.key.split('/').pop()}</h4>
+                                        <p className="text-xs text-gray-500 mb-4">{formatSize(item.size)}</p>
+
+                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4 bg-white dark:bg-slate-800 shadow-lg p-1 rounded-lg border border-gray-100 dark:border-slate-700">
+                                            {item.key.endsWith('.zip') && (
+                                                <button onClick={() => handleImportToWorkspace(item.key)} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 rounded" title="Import to Workspace">
+                                                    <ArrowUpFromLine className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            <button onClick={() => handleDelete(item.key)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 rounded" title="Delete">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
+                                <thead className="text-xs uppercase bg-gray-50 dark:bg-slate-900/50">
+                                    <tr>
+                                        <th className="px-6 py-3">Name</th>
+                                        <th className="px-6 py-3">Size</th>
+                                        <th className="px-6 py-3">Modified</th>
+                                        <th className="px-6 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
+                                    {filteredBackups.map(item => (
+                                        <tr key={item.key} className="bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800/50 group">
+                                            <td className="px-6 py-4 font-medium text-gray-900 dark:text-white flex items-center gap-3">
+                                                {item.key.endsWith('.zip') ? <FileArchive className="w-4 h-4 text-orange-500" /> : <File className="w-4 h-4 text-blue-500" />}
+                                                {item.key.split('/').pop()}
+                                            </td>
+                                            <td className="px-6 py-4">{formatSize(item.size)}</td>
+                                            <td className="px-6 py-4">{new Date(item.lastModified).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
+                                                    {item.key.endsWith('.zip') && (
+                                                        <button onClick={() => handleImportToWorkspace(item.key)} className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 rounded">
+                                                            Import
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleDelete(item.key)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 rounded">
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )
+                    )}
+                </div>
             </div>
         </div>
     );

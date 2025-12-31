@@ -257,5 +257,89 @@ module.exports = (dependencies) => {
         }
     });
 
+    // POST /upload - Upload file from PC directly to S3
+    router.post('/upload', dependencies.multer().single('file'), async (req, res) => {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+        try {
+            const s3Key = `lab-backups/uploads/${Date.now()}_${req.file.originalname}`;
+
+            // Upload to S3
+            const uploadParams = {
+                Bucket: BUCKET_NAME,
+                Key: s3Key,
+                Body: req.file.buffer, // Buffer from multer memory storage
+                ContentType: req.file.mimetype,
+                Metadata: {
+                    originalName: req.file.originalname,
+                    uploadDate: new Date().toISOString()
+                }
+            };
+
+            dependencies.broadcastLog('system', `☁️ Uploading ${req.file.originalname} to Cloud...`, 'info');
+            const s3Result = await s3.upload(uploadParams).promise();
+
+            dependencies.broadcastLog('system', `✅ Cloud upload complete: ${req.file.originalname}`, 'success');
+
+            res.json({
+                success: true,
+                key: s3Key,
+                url: s3Result.Location,
+                size: req.file.size
+            });
+        } catch (err) {
+            console.error('Cloud upload error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // POST /import - Import Web Project from S3 to Workspace
+    router.post('/import', async (req, res) => {
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: 'Key required' });
+
+        const fileName = path.basename(key, '.zip');
+        const tempPath = path.join(LABS_DIR, `_import_${Date.now()}.zip`);
+
+        // If it's the "uploads" folder, we might want to just dump it cleanly
+        // If it's a version backup, it extracts to versionId
+        // Let's assume standard unzip to a new folder named after the file
+        const targetPath = path.join(LABS_DIR, fileName);
+
+        try {
+            dependencies.broadcastLog('system', `⬇️ Importing ${key} from Cloud...`, 'info');
+
+            const params = { Bucket: BUCKET_NAME, Key: key };
+            const s3Stream = s3.getObject(params).createReadStream();
+            const fileStream = createWriteStream(tempPath);
+
+            await new Promise((resolve, reject) => {
+                s3Stream.pipe(fileStream);
+                fileStream.on('close', resolve);
+                s3Stream.on('error', reject);
+            });
+
+            dependencies.broadcastLog('system', `📦 Extracting to ${fileName}...`, 'info');
+
+            const AdmZip = require('adm-zip');
+            const zip = new AdmZip(tempPath);
+            zip.extractAllTo(targetPath, true);
+
+            fs.unlinkSync(tempPath);
+            dependencies.broadcastLog('system', `✅ Project imported successfully: ${fileName}`, 'success');
+
+            // Notify frontend to refresh versions list
+            dependencies.broadcastState();
+
+            res.json({ success: true, versionId: fileName });
+
+        } catch (err) {
+            console.error('Import error:', err);
+            dependencies.broadcastLog('system', `❌ Import failed: ${err.message}`, 'error');
+            if (existsSync(tempPath)) fs.unlinkSync(tempPath);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     return router;
 };
