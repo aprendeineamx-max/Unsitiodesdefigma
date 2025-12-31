@@ -1,5 +1,5 @@
 # Testing Report - Iteration 1
-Generated: 2025-12-30T08:33:27.107601
+Generated: 2025-12-30T23:15:02.334042
 
 ## verify_every_tsx_file
 
@@ -625,231 +625,25 @@ Generated: 2025-12-30T08:33:27.107601
 ## verify_every_endpoint
 
 ```json
-{
-  "POST /api/upload": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/versions": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/start": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/stop": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/archive": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/trash": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/delete": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/trash/list": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/restore": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/trash/empty": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/bulk/start": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/bulk/stop": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/bulk/restart": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/health/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/metrics/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/automation/auto-restart": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/automation/auto-restart/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/config/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/env/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/env/:versionId": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/snapshots/:versionId": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/snapshots/:versionId": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/snapshots/:versionId/restore": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/clone": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/terminal/:versionId/exec": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/watch/:versionId/start": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/watch/:versionId/stop": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/deps/:versionId/analyze": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/deps/:versionId/update": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/backup/:versionId": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/backup/:versionId/list": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/logs/:versionId/stream": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/files": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/files/read": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/files/write": {
-    "found": true,
-    "method": "post"
-  },
-  "GET /api/docs": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/system/info": {
-    "found": true,
-    "method": "get"
-  },
-  "GET /api/git/status": {
-    "found": true,
-    "method": "get"
-  },
-  "POST /api/git/init": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/git/commit": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/git/remote": {
-    "found": true,
-    "method": "post"
-  },
-  "POST /api/git/push": {
-    "found": true,
-    "method": "post"
-  }
-}
+{}
 ```
 
 ## verify_every_helper_function
 
 ```json
-{
-  "broadcastState": {
-    "declared": true,
-    "usage_count": 15
-  },
-  "broadcastLog": {
-    "declared": true,
-    "usage_count": 57
-  },
-  "getVersionsState": {
-    "declared": true,
-    "usage_count": 3
-  },
-  "startProcess": {
-    "declared": true,
-    "usage_count": 5
-  },
-  "stopProcess": {
-    "declared": true,
-    "usage_count": 8
-  },
-  "formatUptime": {
-    "declared": true,
-    "usage_count": 1
-  },
-  "getDirectorySize": {
-    "declared": true,
-    "usage_count": 2
-  },
-  "logHandler": {
-    "declared": true,
-    "usage_count": 1
-  },
-  "getGit": {
-    "declared": true,
-    "usage_count": 5
-  }
-}
+{}
 ```
 
 ## verify_server_structure
 
 ```json
 {
-  "imports": 17,
-  "routes": 47,
-  "functions": 8,
-  "async": 42,
-  "try_catch": 49,
-  "error_handling": 49
+  "imports": 26,
+  "routes": 12,
+  "functions": 0,
+  "async": 0,
+  "try_catch": 0,
+  "error_handling": 0
 }
 ```
 
@@ -857,8 +651,8 @@ Generated: 2025-12-30T08:33:27.107601
 
 ```json
 {
-  "try_blocks": 49,
-  "catch_blocks": 49,
+  "try_blocks": 0,
+  "catch_blocks": 0,
   "matched": true
 }
 ```
@@ -886,8 +680,8 @@ Generated: 2025-12-30T08:33:27.107601
   },
   "4173": {
     "name": "Frontend Preview",
-    "status": 200,
-    "accessible": true
+    "accessible": false,
+    "error": "<urlopen error timed out>"
   },
   "5173": {
     "name": "Frontend Dev (if running)",
@@ -902,8 +696,8 @@ Generated: 2025-12-30T08:33:27.107601
 ```json
 {
   "socket_io_configured": true,
-  "has_emissions": true,
-  "total_emissions": 16
+  "has_emissions": false,
+  "total_emissions": 0
 }
 ```
 
@@ -953,7 +747,11 @@ Generated: 2025-12-30T08:33:27.107601
 
 ```json
 {
-  "error": "'NoneType' object has no attribute 'splitlines'"
+  "working_tree_clean": false,
+  "untracked_files": 16,
+  "modified_files": 4,
+  "recent_commits": 10,
+  "current_branch": "feature/figma-lab-v21"
 }
 ```
 
