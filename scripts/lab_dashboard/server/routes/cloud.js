@@ -341,5 +341,48 @@ module.exports = (dependencies) => {
         }
     });
 
+    // POST /transfer - Upload a local server-side file to Cloud (S3)
+    // Used for System Backup (uploading files from C:/ directly)
+    router.post('/transfer', async (req, res) => {
+        const { sourcePath, targetPath } = req.body;
+        if (!sourcePath || !fs.existsSync(sourcePath)) {
+            return res.status(400).json({ error: 'Valid source path required' });
+        }
+
+        try {
+            const fileName = path.basename(sourcePath);
+            const s3Key = targetPath || `system-backups/${os.hostname()}/${Date.now()}_${fileName}`;
+            const fileStream = fs.createReadStream(sourcePath);
+            const stats = fs.statSync(sourcePath);
+
+            const uploadParams = {
+                Bucket: BUCKET_NAME,
+                Key: s3Key,
+                Body: fileStream,
+                Metadata: {
+                    originalPath: sourcePath,
+                    backupDate: new Date().toISOString()
+                }
+            };
+
+            dependencies.broadcastLog('system', `🚀 Starting Server-Side Upload: ${fileName}...`, 'info');
+
+            // Use upload() for concurrency handling
+            const s3Result = await s3.upload(uploadParams).promise();
+
+            dependencies.broadcastLog('system', `✅ Server-Side Upload Complete: ${fileName}`, 'success');
+
+            res.json({
+                success: true,
+                key: s3Key,
+                size: stats.size
+            });
+
+        } catch (err) {
+            console.error('Transfer error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     return router;
 };

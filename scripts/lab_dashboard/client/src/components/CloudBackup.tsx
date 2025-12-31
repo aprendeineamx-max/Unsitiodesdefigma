@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { SystemBrowser } from './SystemBrowser';
 import {
     Cloud, Upload, Download, Trash2, RefreshCw, HardDrive,
     File, Folder, Clock, Check, AlertCircle, Search, Grid, List,
@@ -30,7 +31,9 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [storageInfo, setStorageInfo] = useState({ used: 0, total: 25000 }); // Default 25GB for Vultr Object Storage
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
+    const [showSystemBrowser, setShowSystemBrowser] = useState(false);
 
     useEffect(() => {
         checkConnection();
@@ -91,6 +94,24 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
+    // Handle System Browser Upload (Server-Side)
+    const handleSystemUpload = async (sourcePath: string) => {
+        setUploading(true);
+        setShowSystemBrowser(false);
+        try {
+            alert(`Started background upload for ${sourcePath}`);
+            await axios.post(`${API_URL}/api/cloud/transfer`, { sourcePath });
+            loadBackups();
+            alert('✅ Upload saved to Cloud successfully');
+        } catch (err: any) {
+            alert('System Upload failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // Version-specific Backup (if version selected)
+
     // Version-specific Backup (if version selected)
     const handleCreateVersionBackup = async () => {
         if (!versionId) return;
@@ -150,7 +171,13 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const storagePercent = Math.min((storageInfo.used / storageInfo.total) * 100, 100);
 
     return (
-        <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden">
+        <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
+            {showSystemBrowser && (
+                <SystemBrowser
+                    onUpload={handleSystemUpload}
+                    onClose={() => setShowSystemBrowser(false)}
+                />
+            )}
             {/* Sidebar / Filter Panel */}
             <div className="w-64 border-r border-gray-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900/50">
                 <div className="p-4">
@@ -161,6 +188,14 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                         <input {...getInputProps()} />
                         <Plus className="w-5 h-5" />
                         <span className="text-sm">New Upload</span>
+                    </button>
+
+                    <button
+                        onClick={() => setShowSystemBrowser(true)}
+                        className="mt-2 w-full py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <HardDrive className="w-4 h-4" />
+                        Browse PC System
                     </button>
                     {versionId && (
                         <button
