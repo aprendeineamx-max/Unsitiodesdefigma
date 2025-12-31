@@ -12,9 +12,10 @@ interface ArchiveItem {
 
 interface ArchiveViewProps {
     onRefresh?: () => void;
+    lastUpdate?: number;
 }
 
-export function ArchiveView({ onRefresh }: ArchiveViewProps) {
+export function ArchiveView({ onRefresh, lastUpdate }: ArchiveViewProps) {
     const [archives, setArchives] = useState<ArchiveItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -32,7 +33,7 @@ export function ArchiveView({ onRefresh }: ArchiveViewProps) {
 
     useEffect(() => {
         loadArchives();
-    }, []);
+    }, [lastUpdate]);
 
     const handleUnarchive = async (id: string) => {
         if (!confirm(`Restore ${id} from archive?`)) return;

@@ -80,6 +80,7 @@ function App() {
     // View & Selection State
     const [viewMode, setViewMode] = useState<ViewMode>('grid-medium');
     const [selectedZips, setSelectedZips] = useState<string[]>([]);
+    const [lastUpdate, setLastUpdate] = useState(0);
 
     const socketRef = useRef<any>(null);
 
@@ -106,11 +107,14 @@ function App() {
             console.log('API Action detected:', action);
 
             // Auto-refresh versions list when API makes changes
-            if (['ZIP_STARTED', 'ZIP_STOPPED', 'ZIP_UPLOADED', 'ZIP_DELETED', 'ZIP_ARCHIVED', 'ZIP_TRASHED', 'BULK_START', 'BULK_STOP', 'BULK_RESTART'].includes(action.type)) {
+            if (['ZIP_STARTED', 'ZIP_STOPPED', 'ZIP_UPLOADED', 'ZIP_DELETED', 'ZIP_ARCHIVED', 'ZIP_TRASHED', 'BULK_START', 'BULK_STOP', 'BULK_RESTART', 'ZIP_RESTORED'].includes(action.type)) {
                 // Refresh versions state
                 axios.get(`${API_URL}/api/versions`)
                     .then(res => setVersions(res.data))
                     .catch(err => console.error('Failed to refresh versions:', err));
+
+                // Signal other views to refresh
+                setLastUpdate(Date.now());
             }
         });
 
@@ -897,8 +901,8 @@ function App() {
                         {currentPage === 'explorer' && renderExplorer()}
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
                         {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} versions={versions} /></div>}
-                        {currentPage === 'trash' && <div className="h-full animate-in fade-in duration-300"><TrashView /></div>}
-                        {currentPage === 'archive' && <div className="h-full animate-in fade-in duration-300"><ArchiveView /></div>}
+                        {currentPage === 'trash' && <div className="h-full animate-in fade-in duration-300"><TrashView lastUpdate={lastUpdate} /></div>}
+                        {currentPage === 'archive' && <div className="h-full animate-in fade-in duration-300"><ArchiveView lastUpdate={lastUpdate} /></div>}
                         {currentPage === 'settings' && <div className="h-full"><SettingsView stats={stats} selectedVersion={selectedVersion} /></div>}
                     </div>
                 </main>

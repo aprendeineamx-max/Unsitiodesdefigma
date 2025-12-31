@@ -8,13 +8,17 @@ interface TrashedZip {
     id: string;
 }
 
-export function TrashView() {
+interface TrashViewProps {
+    lastUpdate?: number;
+}
+
+export function TrashView({ lastUpdate }: TrashViewProps) {
     const [trashedZips, setTrashedZips] = useState<TrashedZip[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         loadTrashedZips();
-    }, []);
+    }, [lastUpdate]);
 
     const loadTrashedZips = async () => {
         setLoading(true);
