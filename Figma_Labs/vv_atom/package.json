@@ -1,1 +1,11 @@
-{"name":"vv_atom","version":"1.0.0","scripts":{"start":"node index.js"}}
+{
+    "name": "vv_atom",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "vite": "^6.0.0"
+    }
+}

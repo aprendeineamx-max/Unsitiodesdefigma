@@ -43,8 +43,27 @@ module.exports = (deps) => {
         });
         broadcastState();
 
+        let buffer = '';
         child.stdout.on('data', d => {
+            buffer += d.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line
+
+            lines.forEach(line => {
+                if (line.includes('Local:')) {
+                    const proc = activeProcesses.get(versionId);
+                    if (proc) {
+                        proc.status = 'running';
+                        broadcastState();
+                        broadcastLog(versionId, `Server ready at http://localhost:${port}`, 'success');
+                    }
+                }
+            });
+        });
+
+        child.stderr.on('data', d => {
             const str = d.toString();
+            broadcastLog(versionId, str, 'info');
             if (str.includes('Local:')) {
                 const proc = activeProcesses.get(versionId);
                 if (proc) {
@@ -54,8 +73,6 @@ module.exports = (deps) => {
                 }
             }
         });
-
-        child.stderr.on('data', d => broadcastLog(versionId, d.toString(), 'info'));
 
         child.on('close', code => {
             activeProcesses.delete(versionId);
