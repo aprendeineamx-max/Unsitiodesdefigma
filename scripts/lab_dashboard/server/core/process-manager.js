@@ -43,6 +43,32 @@ module.exports = (deps) => {
         });
         broadcastState();
 
+        // TCP Polling for robustness (Fixes Ghost State)
+        const net = require('net');
+        const poller = setInterval(() => {
+            if (!activeProcesses.has(versionId)) {
+                clearInterval(poller);
+                return;
+            }
+            const socket = new net.Socket();
+            socket.setTimeout(500);
+            socket.on('connect', () => {
+                const proc = activeProcesses.get(versionId);
+                if (proc && proc.status !== 'running') {
+                    proc.status = 'running';
+                    broadcastState();
+                    broadcastLog(versionId, `[System] Port ${port} active - Server Verified`, 'success');
+                }
+                socket.destroy();
+                clearInterval(poller);
+            }).on('error', (e) => {
+                socket.destroy();
+            }).on('timeout', () => {
+                socket.destroy();
+            });
+            socket.connect(port, '127.0.0.1');
+        }, 1000);
+
         let buffer = '';
         child.stdout.on('data', d => {
             buffer += d.toString();

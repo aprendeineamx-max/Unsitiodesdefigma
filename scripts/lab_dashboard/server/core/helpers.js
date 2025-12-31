@@ -4,6 +4,7 @@ module.exports = (deps) => {
     function getVersionsState() {
         const versions = [];
         try {
+            // 1. Scan Labs Directory
             if (fs.existsSync(LABS_DIR)) {
                 const items = fs.readdirSync(LABS_DIR);
                 items.forEach(item => {
@@ -26,6 +27,21 @@ module.exports = (deps) => {
                     } catch (e) { }
                 });
             }
+
+            // 2. Add Legacy Project (Figma_Lab)
+            if (LEGACY_DIR && fs.existsSync(LEGACY_DIR)) {
+                const legacyId = path.basename(LEGACY_DIR);
+                const proc = activeProcesses.get(legacyId);
+                versions.push({
+                    id: legacyId,
+                    path: LEGACY_DIR,
+                    type: 'legacy',
+                    status: proc ? (proc.status || 'running') : 'stopped',
+                    port: proc ? proc.port : null,
+                    pid: proc ? proc.pid : null
+                });
+            }
+
         } catch (err) {
             console.error('Error scanning directories:', err);
         }
