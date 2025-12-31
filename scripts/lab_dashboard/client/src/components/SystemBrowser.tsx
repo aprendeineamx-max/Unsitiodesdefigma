@@ -13,13 +13,14 @@ interface FileItem {
 }
 
 interface SystemBrowserProps {
-    onUpload: (sourcePath: string) => Promise<void>;
+    onUpload: (path: string) => Promise<void>;
     onClose: () => void;
+    mode?: 'file' | 'folder'; // 'file' (default) or 'folder'
 }
 
 const API_URL = 'http://localhost:3000';
 
-export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose }) => {
+export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose, mode = 'file' }) => {
     const [drives, setDrives] = useState<string[]>([]);
     const [currentPath, setCurrentPath] = useState<string>('');
     const [files, setFiles] = useState<FileItem[]>([]);
@@ -69,7 +70,7 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose 
         if (item.isDirectory) {
             loadPath(item.path);
         } else {
-            setSelectedFile(item);
+            if (mode === 'file') setSelectedFile(item);
         }
     };
 
@@ -94,7 +95,9 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose 
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">System Browser</h2>
-                            <p className="text-xs text-gray-500">Select files from Host PC to backup</p>
+                            <p className="text-xs text-gray-500">
+                                {mode === 'folder' ? 'Select a FOLDER to watch' : 'Select a FILE to backup'}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -143,9 +146,10 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose 
                                 onClick={() => handleNavigate(file)}
                                 className={`
                                     flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all
-                                    ${selectedFile?.path === file.path
+                                    ${(mode === 'file' && selectedFile?.path === file.path)
                                         ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-500/50'
                                         : 'bg-white border-gray-200 hover:border-indigo-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}
+                                    ${(mode === 'folder' && !file.isDirectory) ? 'opacity-50 cursor-not-allowed' : ''}
                                 `}
                             >
                                 {file.isDirectory
@@ -163,17 +167,31 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose 
 
                 {/* Footer Actions */}
                 <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 rounded-b-xl flex justify-between items-center">
-                    <div className="text-sm text-gray-500">
-                        {selectedFile ? `Selected: ${selectedFile.name}` : 'Select a file to upload'}
+                    <div className="text-sm text-gray-500 flex-1 truncate mr-4">
+                        {mode === 'folder'
+                            ? `Current: ${currentPath}`
+                            : (selectedFile ? `Selected: ${selectedFile.name}` : 'Select a file to upload')
+                        }
                     </div>
-                    <button
-                        onClick={() => selectedFile && onUpload(selectedFile.path)}
-                        disabled={!selectedFile || loading}
-                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
-                    >
-                        <Upload className="w-4 h-4" />
-                        Backup Selected File
-                    </button>
+                    {mode === 'folder' ? (
+                        <button
+                            onClick={() => onUpload(currentPath)}
+                            disabled={loading || !currentPath}
+                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+                        >
+                            <Upload className="w-4 h-4" />
+                            Watch This Folder
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => selectedFile && onUpload(selectedFile.path)}
+                            disabled={!selectedFile || loading}
+                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+                        >
+                            <Upload className="w-4 h-4" />
+                            Backup Selected File
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
