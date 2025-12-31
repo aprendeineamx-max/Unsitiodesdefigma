@@ -31,7 +31,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [storageInfo, setStorageInfo] = useState({ used: 0, total: 25000 }); // Default 25GB for Vultr Object Storage
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
     const [showSystemBrowser, setShowSystemBrowser] = useState(false);
 

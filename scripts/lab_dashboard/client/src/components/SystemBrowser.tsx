@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-    HardDrive, Folder, File, ArrowUpCloud, ChevronRight,
+    HardDrive, Folder, File, Upload, ChevronRight,
     Loader2, AlertCircle, Home
 } from 'lucide-react';
 
@@ -171,7 +171,7 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose 
                         disabled={!selectedFile || loading}
                         className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
                     >
-                        <ArrowUpCloud className="w-4 h-4" />
+                        <Upload className="w-4 h-4" />
                         Backup Selected File
                     </button>
                 </div>

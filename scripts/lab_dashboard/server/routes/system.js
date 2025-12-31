@@ -8,17 +8,20 @@ module.exports = (dependencies) => {
 
     // GET /drives - List available drives (Windows)
     router.get('/drives', async (req, res) => {
-        exec('wmic logicaldisk get name', (error, stdout, stderr) => {
+        // Use PowerShell as wmic is deprecated
+        exec('powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Name"', (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`);
-                return res.status(500).json({ error: 'Failed to list drives' });
+                // Fallback or empty
+                return res.json(['C:']); // Assume C: at least
             }
 
-            const drives = stdout.split('\r\r\n')
-                .filter(value => value.trim() && value.trim() !== 'Name')
-                .map(value => value.trim());
+            const drives = stdout.split(/\r?\n/)
+                .map(d => d.trim())
+                .filter(d => d && d.length === 1) // Expect single letters
+                .map(d => d + ':');
 
-            res.json(drives);
+            res.json(drives.length ? drives : ['C:']);
         });
     });
 

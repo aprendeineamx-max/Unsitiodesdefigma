@@ -137,8 +137,8 @@ module.exports = (dependencies) => {
     router.get('/list', async (req, res) => {
         try {
             const params = {
-                Bucket: BUCKET_NAME,
-                Prefix: 'lab-backups/'
+                Bucket: BUCKET_NAME
+                // Removed Prefix to allow viewing 'uploads/', 'system-backups/', etc.
             };
 
             const data = await s3.listObjectsV2(params).promise();
@@ -147,7 +147,7 @@ module.exports = (dependencies) => {
                 key: item.Key,
                 size: item.Size,
                 lastModified: item.LastModified,
-                versionId: item.Key.split('/')[1],
+                versionId: item.Key.split('/').length > 1 ? item.Key.split('/')[1] : 'root',
                 etag: item.ETag
             }));
 
