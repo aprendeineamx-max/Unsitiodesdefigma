@@ -122,6 +122,15 @@ function App() {
         localStorage.setItem('lab-manager-view-mode', viewMode);
     }, [viewMode]);
 
+    // Derived State
+    const filteredVersions = versions.filter(v =>
+        v.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const filteredLogs = logs.filter(log =>
+        !selectedVersion || log.versionId === selectedVersion
+    );
+
     // Actions
     const handleStart = async (id: string, port: number) => {
         try {
@@ -212,15 +221,10 @@ function App() {
         }
         setSelectedZips([]);
     };
-
-    // Derived State
-    const filteredVersions = versions.filter(v => v.id.toLowerCase().includes(searchTerm.toLowerCase()));
-    const filteredLogs = selectedVersion ? logs.filter(l => l.versionId === selectedVersion) : logs;
-
-    // Render Helpers
-    const renderExplorer = () => (
+    const renderLogs = () => (
         <div className="h-full animate-in fade-in duration-300">
-            <FileExplorer
+            <ConsoleLogs
+                logs={filteredLogs}
                 versionId={selectedVersion}
                 versions={versions}
                 onSelectVersion={setSelectedVersion}
@@ -228,10 +232,9 @@ function App() {
         </div>
     );
 
-    const renderLogs = () => (
+    const renderExplorer = () => (
         <div className="h-full animate-in fade-in duration-300">
-            <ConsoleLogs
-                logs={filteredLogs}
+            <FileExplorer
                 versionId={selectedVersion}
                 versions={versions}
                 onSelectVersion={setSelectedVersion}
@@ -893,7 +896,7 @@ function App() {
                         {currentPage === 'console' && <div className="h-full animate-in fade-in duration-300"><BrowserConsole /></div>}
                         {currentPage === 'explorer' && renderExplorer()}
                         {currentPage === 'git' && <div className="h-full animate-in fade-in duration-300"><GitControl versionId={selectedVersion} /></div>}
-                        {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} /></div>}
+                        {currentPage === 'cloud' && <div className="h-full animate-in fade-in duration-300"><CloudBackup versionId={selectedVersion} versions={versions} /></div>}
                         {currentPage === 'trash' && <div className="h-full animate-in fade-in duration-300"><TrashView /></div>}
                         {currentPage === 'archive' && <div className="h-full animate-in fade-in duration-300"><ArchiveView /></div>}
                         {currentPage === 'settings' && <div className="h-full"><SettingsView stats={stats} selectedVersion={selectedVersion} /></div>}

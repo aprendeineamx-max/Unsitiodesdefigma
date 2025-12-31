@@ -7,7 +7,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 module.exports = (dependencies) => {
-    const { LABS_DIR, LEGACY_DIR, broadcastLog, broadcastState } = dependencies;
+    const { LABS_DIR, broadcastLog, broadcastState } = dependencies;
 
     // Configure S3 Client for Vultr
     const s3 = new AWS.S3({
@@ -20,7 +20,7 @@ module.exports = (dependencies) => {
 
     const BUCKET_NAME = process.env.VULTR_BUCKET_NAME || 'lab-backups';
 
-    // Helper: Create ZIP of version directory
+    // Helper: Create ZIP
     async function createZipArchive(versionId, outputPath) {
         return new Promise((resolve, reject) => {
             const sourcePath = path.join(LABS_DIR, versionId);
@@ -41,7 +41,46 @@ module.exports = (dependencies) => {
         });
     }
 
-    // POST /api/cloud/backup/:versionId - Upload version to S3
+    // GET /status - Check S3 and auto-create bucket
+    router.get('/status', async (req, res) => {
+        try {
+            try {
+                await s3.headBucket({ Bucket: BUCKET_NAME }).promise();
+
+                res.json({
+                    connected: true,
+                    bucket: BUCKET_NAME,
+                    endpoint: process.env.VULTR_ENDPOINT,
+                    autoCreated: false
+                });
+            } catch (headErr) {
+                if (headErr.code === 'NotFound' || headErr.statusCode === 404) {
+                    broadcastLog('system', `Bucket ${BUCKET_NAME} not found. Creating...`, 'warn');
+
+                    await s3.createBucket({ Bucket: BUCKET_NAME }).promise();
+                    broadcastLog('system', `✅ Bucket ${BUCKET_NAME} created`, 'success');
+
+                    res.json({
+                        connected: true,
+                        bucket: BUCKET_NAME,
+                        endpoint: process.env.VULTR_ENDPOINT,
+                        autoCreated: true
+                    });
+                } else {
+                    throw headErr;
+                }
+            }
+        } catch (err) {
+            console.error('S3 Connection Error:', err);
+            res.json({
+                connected: false,
+                error: err.message,
+                code: err.code
+            });
+        }
+    });
+
+    // POST /backup/:versionId
     router.post('/backup/:versionId', async (req, res) => {
         const { versionId } = req.params;
         const tempZipPath = path.join(LABS_DIR, `_temp_${versionId}_${Date.now()}.zip`);
@@ -49,11 +88,9 @@ module.exports = (dependencies) => {
         try {
             broadcastLog('system', `Creating backup of ${versionId}...`, 'info');
 
-            // Create ZIP
             const zipSize = await createZipArchive(versionId, tempZipPath);
             broadcastLog('system', `ZIP created (${(zipSize / 1024 / 1024).toFixed(2)} MB)`, 'success');
 
-            // Upload to S3
             const s3Key = `lab-backups/${versionId}/${Date.now()}.zip`;
             const fileStream = createReadStream(tempZipPath);
 
@@ -72,7 +109,6 @@ module.exports = (dependencies) => {
             broadcastLog('system', `Uploading to S3...`, 'info');
             const s3Result = await s3.upload(uploadParams).promise();
 
-            // Cleanup temp file
             fs.unlinkSync(tempZipPath);
 
             broadcastLog('system', `✅ Backup uploaded: ${s3Key}`, 'success');
@@ -89,7 +125,6 @@ module.exports = (dependencies) => {
             console.error('Backup error:', err);
             broadcastLog('system', `❌ Backup failed: ${err.message}`, 'error');
 
-            // Cleanup on error
             if (existsSync(tempZipPath)) {
                 fs.unlinkSync(tempZipPath);
             }
@@ -98,7 +133,7 @@ module.exports = (dependencies) => {
         }
     });
 
-    // GET /api/cloud/list - List all backups
+    // GET /list
     router.get('/list', async (req, res) => {
         try {
             const params = {
@@ -108,11 +143,11 @@ module.exports = (dependencies) => {
 
             const data = await s3.listObjectsV2(params).promise();
 
-            const backups = data.Contents.map(item => ({
+            const backups = (data.Contents || []).map(item => ({
                 key: item.Key,
                 size: item.Size,
                 lastModified: item.LastModified,
-                versionId: item.Key.split('/')[1], // Extract from path
+                versionId: item.Key.split('/')[1],
                 etag: item.ETag
             }));
 
@@ -124,7 +159,7 @@ module.exports = (dependencies) => {
         }
     });
 
-    // GET /api/cloud/list/:versionId - List backups for specific version
+    // GET /list/:versionId
     router.get('/list/:versionId', async (req, res) => {
         const { versionId } = req.params;
 
@@ -136,7 +171,7 @@ module.exports = (dependencies) => {
 
             const data = await s3.listObjectsV2(params).promise();
 
-            const backups = data.Contents.map(item => ({
+            const backups = (data.Contents || []).map(item => ({
                 key: item.Key,
                 size: item.Size,
                 lastModified: item.LastModified,
@@ -151,7 +186,7 @@ module.exports = (dependencies) => {
         }
     });
 
-    // POST /api/cloud/restore - Restore backup from S3
+    // POST /restore
     router.post('/restore', async (req, res) => {
         const { backupKey, targetName } = req.body;
 
@@ -165,7 +200,6 @@ module.exports = (dependencies) => {
         try {
             broadcastLog('system', `Downloading backup from S3...`, 'info');
 
-            // Download from S3
             const params = { Bucket: BUCKET_NAME, Key: backupKey };
             const s3Stream = s3.getObject(params).createReadStream();
             const fileStream = createWriteStream(tempZipPath);
@@ -178,12 +212,10 @@ module.exports = (dependencies) => {
 
             broadcastLog('system', `Extracting backup...`, 'info');
 
-            // Extract ZIP
             const AdmZip = require('adm-zip');
             const zip = new AdmZip(tempZipPath);
             zip.extractAllTo(targetPath, true);
 
-            // Cleanup
             fs.unlinkSync(tempZipPath);
 
             broadcastLog('system', `✅ Backup restored to ${targetName}`, 'success');
@@ -203,7 +235,7 @@ module.exports = (dependencies) => {
         }
     });
 
-    // DELETE /api/cloud/delete - Delete backup from S3
+    // DELETE /delete
     router.delete('/delete', async (req, res) => {
         const { backupKey } = req.body;
 
@@ -222,26 +254,6 @@ module.exports = (dependencies) => {
         } catch (err) {
             console.error('Delete error:', err);
             res.status(500).json({ error: err.message });
-        }
-    });
-
-    // GET /api/cloud/status - Check S3 connection
-    router.get('/status', async (req, res) => {
-        try {
-            // Try to list buckets to verify connection
-            await s3.headBucket({ Bucket: BUCKET_NAME }).promise();
-
-            res.json({
-                connected: true,
-                bucket: BUCKET_NAME,
-                endpoint: process.env.VULTR_ENDPOINT
-            });
-
-        } catch (err) {
-            res.json({
-                connected: false,
-                error: err.message
-            });
         }
     });
 
