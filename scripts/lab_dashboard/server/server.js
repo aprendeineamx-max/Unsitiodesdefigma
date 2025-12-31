@@ -137,44 +137,19 @@ setInterval(async () => {
     }
     if (Object.keys(stats).length > 0) io.emit('stats-update', stats);
 }, 2000);
-
-// HELPERS
-function broadcastState() {
-    io.emit('state-update', getVersionsState());
-}
-
-function broadcastLog(versionId, text, type = 'info') {
-    const entry = { versionId, text, type, timestamp: new Date().toISOString() };
-    console.log('BROADCASTING LOG:', entry);
-    io.emit('log', entry);
-    const proc = activeProcesses.get(versionId);
-    if (proc) {
-        if (!proc.logs) proc.logs = [];
-        proc.logs.push(entry);
-    }
-}
-
-function getVersionsState() {
-    const versions = [];
-    try {
-        if (fs.existsSync(LABS_DIR)) {
-            fs.readdirSync(LABS_DIR).forEach(item => {
-                const p = path.join(LABS_DIR, item);
-                if (fs.statSync(p).isDirectory() && !item.startsWith('.') && !item.startsWith('_')) {
-                    const proc = activeProcesses.get(item);
-                    versions.push({
-                        id: item,
-                        path: p,
-                        type: 'lab',
-                        status: proc ? proc.status : 'stopped',
-                        port: proc ? proc.port : null,
-                        pid: proc ? proc.pid : null
-                    });
+versions.push({
+    id: item,
+    path: p,
+    type: 'lab',
+    status: proc ? proc.status : 'stopped',
+    port: proc ? proc.port : null,
+    pid: proc ? proc.pid : null
+});
                 }
             });
         }
     } catch (err) { }
-    return versions;
+return versions;
 }
 
 // PROCESS MANAGER
