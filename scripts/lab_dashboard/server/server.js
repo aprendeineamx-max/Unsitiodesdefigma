@@ -74,6 +74,7 @@ app.use('/api/upload', require('./routes/upload')(dependencies));
 app.use('/api', require('./routes/versions')(dependencies));
 app.use('/api', require('./routes/management')(dependencies));
 app.use('/api/trash', require('./routes/trash')(dependencies));
+app.use('/api/archive', require('./routes/archive')(dependencies));
 app.use('/api/bulk', require('./routes/bulk')(dependencies));
 app.use('/api/health', require('./routes/health')(dependencies));
 app.use('/api/git', require('./routes/git')(dependencies));

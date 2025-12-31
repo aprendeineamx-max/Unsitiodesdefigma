@@ -35,7 +35,7 @@ export function TrashView({ lastUpdate }: TrashViewProps) {
     const handleRestore = async (id: string) => {
         if (!confirm(`Restore ${id} from Trash?`)) return;
         try {
-            await axios.post(`${API_URL}/api/restore`, { version: id });
+            await axios.post(`${API_URL}/api/trash/restore`, { version: id });
             loadTrashedZips();
         } catch (err: any) {
             console.error('Failed to restore:', err);

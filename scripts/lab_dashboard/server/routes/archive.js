@@ -3,7 +3,8 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs-extra');
 
-module.exports = (LABS_DIR, stopProcess, broadcastLog, broadcastState, io) => {
+module.exports = (dependencies) => {
+    const { LABS_DIR, stopProcess, broadcastLog, broadcastState, io, fs, path } = dependencies;
 
     // Archive a ZIP
     router.post('/', async (req, res) => {

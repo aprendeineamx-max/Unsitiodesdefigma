@@ -38,7 +38,7 @@ export function ArchiveView({ onRefresh, lastUpdate }: ArchiveViewProps) {
     const handleUnarchive = async (id: string) => {
         if (!confirm(`Restore ${id} from archive?`)) return;
         try {
-            await axios.post(`${API_URL}/api/unarchive`, { version: id });
+            await axios.post(`${API_URL}/api/archive/restore`, { version: id });
             alert(`✅ ${id} restored from archive`);
             loadArchives();
             onRefresh?.();
