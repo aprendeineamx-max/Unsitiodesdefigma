@@ -10,9 +10,18 @@
     },
     "dependencies": {
         "adm-zip": "^0.5.16",
+        "axios": "^1.13.2",
         "cors": "^2.8.5",
-        "express": "^4.18.2",
-        "sql.js": "^1.8.0"
+        "express": "^4.22.1",
+        "form-data": "^4.0.5",
+        "fs-extra": "^11.3.3",
+        "multer": "^2.0.2",
+        "node-stream-zip": "^1.15.0",
+        "pidusage": "^4.0.1",
+        "socket.io": "^4.8.3",
+        "socket.io-client": "^4.8.3",
+        "sql.js": "^1.8.0",
+        "tree-kill": "^1.2.2"
     },
     "author": "Antigravity Agent",
     "license": "MIT"

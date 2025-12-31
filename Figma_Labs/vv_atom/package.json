@@ -1,11 +1,1 @@
-{
-    "name": "v_atom",
-    "version": "1.0.0",
-    "scripts": {
-        "start": "node server.js",
-        "dev": "node server.js"
-    },
-    "dependencies": {
-        "lodash": "^4.17.21"
-    }
-}
+{"name":"vv_atom","version":"1.0.0","scripts":{"start":"node index.js"}}
