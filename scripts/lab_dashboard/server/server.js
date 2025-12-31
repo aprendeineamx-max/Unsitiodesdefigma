@@ -136,20 +136,64 @@ setInterval(async () => {
         } catch (err) { }
     }
     if (Object.keys(stats).length > 0) io.emit('stats-update', stats);
+    if (Object.keys(stats).length > 0) io.emit('stats-update', stats);
 }, 2000);
-versions.push({
-    id: item,
-    path: p,
-    type: 'lab',
-    status: proc ? proc.status : 'stopped',
-    port: proc ? proc.port : null,
-    pid: proc ? proc.pid : null
-});
+
+// HELPERS
+function broadcastState() {
+    io.emit('state-update', getVersionsState());
+}
+
+function broadcastLog(versionId, text, type = 'info') {
+    const entry = { versionId, text, type, timestamp: new Date().toISOString() };
+
+    // 1. Socket Broadcast
+    io.emit('log', entry);
+
+    // 2. Memory Store
+    if (activeProcesses.has(versionId)) {
+        const proc = activeProcesses.get(versionId);
+        proc.logs.push(entry);
+        if (proc.logs.length > 1000) proc.logs.shift();
+    } else if (versionId === 'watcher') {
+        if (typeof watcherLogs !== 'undefined') {
+            watcherLogs.push(entry);
+            if (watcherLogs.length > 500) watcherLogs.shift();
+        }
+    }
+
+    // 3. Physical File (Law 24/25 Strict Compliance)
+    const LOG_FILE = path.join(__dirname, 'logs', 'app-out.log');
+    try {
+        fs.ensureDirSync(path.dirname(LOG_FILE));
+        const line = `[${entry.timestamp}] [${versionId}] [${type}] ${text}\n`;
+        fs.appendFileSync(LOG_FILE, line);
+    } catch (e) { /* Ignore log write errors to prevent crash */ }
+
+    console.log(`[${versionId}] ${text}`);
+}
+
+function getVersionsState() {
+    const versions = [];
+    try {
+        if (fs.existsSync(LABS_DIR)) {
+            fs.readdirSync(LABS_DIR).forEach(item => {
+                const p = path.join(LABS_DIR, item);
+                if (fs.statSync(p).isDirectory() && !item.startsWith('.') && !item.startsWith('_')) {
+                    const proc = activeProcesses.get(item);
+                    versions.push({
+                        id: item,
+                        path: p,
+                        type: 'lab',
+                        status: proc ? proc.status : 'stopped',
+                        port: proc ? proc.port : null,
+                        pid: proc ? proc.pid : null
+                    });
                 }
             });
         }
     } catch (err) { }
-return versions;
+    return versions;
 }
 
 // PROCESS MANAGER
