@@ -35,7 +35,7 @@ export function FileExplorer({ versionId, versions, onSelectVersion }: FileExplo
         if (!versionId) return;
         setLoading(true);
         try {
-            const res = await axios.get(`${API_URL}/files/read`, { params: { versionId, path } });
+            const res = await axios.get(`${API_URL}/api/files/read`, { params: { versionId, path } });
             setCode(res.data.content);
             setOriginalCode(res.data.content);
             setCurrentFile(path);
@@ -50,7 +50,7 @@ export function FileExplorer({ versionId, versions, onSelectVersion }: FileExplo
         if (!versionId || !currentFile) return;
         setSaving(true);
         try {
-            await axios.post(`${API_URL}/files/write`, {
+            await axios.post(`${API_URL}/api/files/write`, {
                 versionId,
                 path: currentFile,
                 content: code
@@ -184,10 +184,13 @@ function RecursiveTree({ versionId, path, level, onFileClick, selectedFile }: an
 
     const loadItems = async () => {
         try {
-            const res = await axios.get(`${API_URL}/files`, { params: { versionId, path } });
+            const res = await axios.get(`${API_URL}/api/files`, { params: { versionId, path } });
             setItems(res.data.items);
             setLoaded(true);
-        } catch (e) { }
+        } catch (e) {
+            console.error("Load items failed:", e);
+            setLoaded(true); // Stop loading spinner even on error
+        }
     };
 
     const toggleExpand = async () => {
@@ -229,7 +232,7 @@ function FileTreeItem({ item, versionId, level, onFileClick, selectedFile }: any
         e.stopPropagation();
         if (isDir) {
             if (!expanded && !loaded) {
-                const res = await axios.get(`${API_URL}/files`, { params: { versionId, path: item.path } });
+                const res = await axios.get(`${API_URL}/api/files`, { params: { versionId, path: item.path } });
                 setChildren(res.data.items);
                 setLoaded(true);
             }
