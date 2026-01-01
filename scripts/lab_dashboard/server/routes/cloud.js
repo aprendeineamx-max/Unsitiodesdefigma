@@ -9,7 +9,11 @@ const path = require('path');
 module.exports = (dependencies) => {
     const { LABS_DIR, broadcastLog, broadcastState, io } = dependencies;
     const BackupEngine = require('../services/BackupEngine');
+    const jobManager = require('../services/JobManager');
     const os = require('os');
+
+    // Initialize JobManager on module load
+    jobManager.init();
 
     // Configure S3 Client for Vultr
 
@@ -499,6 +503,31 @@ module.exports = (dependencies) => {
                 dependencies.io.emit('file:uploaded', fileInfo);
             });
 
+            // Persist job state periodically
+            engine.on('stateSave', async (stateData) => {
+                await jobManager.updateProgress(stateData.jobId, stateData.progress, stateData.uploadedKeys);
+            });
+
+            // Save initial job state
+            await jobManager.saveJob({
+                jobId: jobId,
+                sourcePath: sourcePath,
+                targetPrefix: targetPrefix,
+                snapshotMode: snapshotMode,
+                status: 'running',
+                progress: { filesScanned: 0, filesUploaded: 0, bytesUploaded: 0, errors: 0 },
+                uploadedKeys: []
+            });
+
+            // Handle job completion - remove from persistence
+            engine.on('complete', async (stats) => {
+                await jobManager.markCompleted(jobId);
+            });
+
+            engine.on('error', async (err) => {
+                await jobManager.markInterrupted(jobId);
+            });
+
             // Start async
             engine.startBackup(sourcePath, targetPrefix);
 
@@ -610,6 +639,93 @@ module.exports = (dependencies) => {
             res.json({ success: true, deletedCount });
         } catch (err) {
             console.error('Purge error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // GET /jobs/pending - List interrupted/resumable jobs
+    router.get('/jobs/pending', async (req, res) => {
+        try {
+            const pending = jobManager.getPendingJobs();
+            res.json(pending);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // POST /jobs/resume - Resume a previously interrupted job
+    router.post('/jobs/resume', async (req, res) => {
+        const { jobId } = req.body;
+
+        if (!jobId) {
+            return res.status(400).json({ error: 'jobId is required' });
+        }
+
+        const savedJob = jobManager.getJob(jobId);
+        if (!savedJob) {
+            return res.status(404).json({ error: 'Job not found' });
+        }
+
+        try {
+            dependencies.broadcastLog('system', `🔄 Resuming Job [${jobId.slice(0, 8)}]... ${savedJob.uploadedKeys.length} files already uploaded.`, 'info');
+
+            // Create new engine with already uploaded keys for resume
+            const engine = new BackupEngine(s3, BUCKET_NAME, dependencies, jobId, savedJob.uploadedKeys);
+            activeJobs.set(jobId, engine);
+
+            // Hook events
+            engine.on('progress', (stats) => {
+                dependencies.io.emit('backup:progress', stats);
+            });
+
+            engine.on('complete', async (stats) => {
+                dependencies.broadcastLog('system', `✅ Resumed Job [${jobId.slice(0, 8)}] Complete! ${stats.filesUploaded} files.`, 'success');
+                dependencies.io.emit('backup:complete', stats);
+                activeJobs.delete(jobId);
+                await jobManager.markCompleted(jobId);
+            });
+
+            engine.on('error', async (err) => {
+                dependencies.broadcastLog('system', `❌ Resumed Job [${jobId.slice(0, 8)}] Error: ${err.message}`, 'error');
+                dependencies.io.emit('backup:error', { jobId, error: err.message });
+                activeJobs.delete(jobId);
+                await jobManager.markInterrupted(jobId);
+            });
+
+            engine.on('fileUploaded', (fileInfo) => {
+                dependencies.io.emit('file:uploaded', fileInfo);
+            });
+
+            engine.on('stateSave', async (stateData) => {
+                await jobManager.updateProgress(stateData.jobId, stateData.progress, stateData.uploadedKeys);
+            });
+
+            // Update job status to running
+            await jobManager.saveJob({ ...savedJob, status: 'running' });
+
+            // Start from saved source/target
+            engine.startBackup(savedJob.sourcePath, savedJob.targetPrefix);
+
+            res.json({
+                success: true,
+                jobId: jobId,
+                message: 'Job resumed',
+                alreadyUploaded: savedJob.uploadedKeys.length
+            });
+
+        } catch (err) {
+            console.error('Resume error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // DELETE /jobs/:id - Abandon a pending job
+    router.delete('/jobs/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            await jobManager.deleteJob(id);
+            res.json({ success: true });
+        } catch (err) {
             res.status(500).json({ error: err.message });
         }
     });

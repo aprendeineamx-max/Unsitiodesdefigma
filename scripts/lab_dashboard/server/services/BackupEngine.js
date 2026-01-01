@@ -37,7 +37,7 @@ const limitConcurrency = (concurrency) => {
 };
 
 class BackupEngine extends EventEmitter {
-    constructor(s3Client, bucketName, dependencies, jobId) {
+    constructor(s3Client, bucketName, dependencies, jobId, alreadyUploadedKeys = []) {
         super();
         this.s3 = s3Client;
         this.bucket = bucketName;
@@ -45,13 +45,16 @@ class BackupEngine extends EventEmitter {
         this.jobId = jobId;
         this.limit = limitConcurrency(10); // 10 Concurrent uploads
         this.stopRequested = false;
-        this.uploadedKeys = []; // Track for Undo
+        this.uploadedKeys = [...alreadyUploadedKeys]; // Start with already uploaded for resume
+        this.alreadyUploadedSet = new Set(alreadyUploadedKeys); // For fast lookup
+        this.sourcePath = '';
+        this.targetPrefix = '';
 
         // Stats
         this.stats = {
             jobId: this.jobId,
             filesScanned: 0,
-            filesUploaded: 0,
+            filesUploaded: alreadyUploadedKeys.length, // Start from resume point
             bytesUploaded: 0,
             errors: 0,
             currentFile: ''
@@ -89,8 +92,23 @@ class BackupEngine extends EventEmitter {
     async startBackup(sourceRoot, targetPrefix) {
         console.log(`[BackupEngine ${this.jobId}] Starting recursive backup: ${sourceRoot} -> ${this.bucket}/${targetPrefix}`);
         this.stopRequested = false;
-        // Reset stats but keep jobId
-        this.stats = { ...this.stats, filesScanned: 0, filesUploaded: 0, bytesUploaded: 0, errors: 0, currentFile: '' };
+        this.sourcePath = sourceRoot;
+        this.targetPrefix = targetPrefix;
+
+        // Reset stats but keep jobId and resume count
+        const resumeCount = this.alreadyUploadedSet.size;
+        this.stats = {
+            ...this.stats,
+            filesScanned: 0,
+            filesUploaded: resumeCount,
+            bytesUploaded: 0,
+            errors: 0,
+            currentFile: resumeCount > 0 ? 'Resuming...' : ''
+        };
+
+        if (resumeCount > 0) {
+            console.log(`[BackupEngine ${this.jobId}] Resuming from ${resumeCount} already uploaded files.`);
+        }
 
         try {
             await this.processDirectory(sourceRoot, targetPrefix);
@@ -123,6 +141,12 @@ class BackupEngine extends EventEmitter {
                     await this.processDirectory(fullPath, s3Key);
                 } else {
                     this.stats.filesScanned++;
+
+                    // Skip if already uploaded (resume support)
+                    if (this.alreadyUploadedSet.has(s3Key)) {
+                        continue;
+                    }
+
                     // Schedule Upload
                     await this.limit(() => this.uploadFile(fullPath, s3Key));
                 }
@@ -172,6 +196,17 @@ class BackupEngine extends EventEmitter {
             // Emit progress every 5 files or so to avoid spamming
             if (this.stats.filesUploaded % 5 === 0) {
                 this.emit('progress', this.stats);
+            }
+
+            // Emit state save every 50 files for persistence
+            if (this.stats.filesUploaded % 50 === 0) {
+                this.emit('stateSave', {
+                    jobId: this.jobId,
+                    sourcePath: this.sourcePath,
+                    targetPrefix: this.targetPrefix,
+                    progress: this.stats,
+                    uploadedKeys: this.uploadedKeys
+                });
             }
 
         } catch (err) {

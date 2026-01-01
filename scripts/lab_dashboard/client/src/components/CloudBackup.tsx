@@ -28,6 +28,20 @@ interface BackupJob {
     error?: string;
 }
 
+interface PendingJob {
+    jobId: string;
+    sourcePath: string;
+    targetPrefix: string;
+    startedAt: string;
+    lastActivity: string;
+    status: string;
+    progress: {
+        filesUploaded: number;
+        bytesUploaded: number;
+    };
+    uploadedKeys: string[];
+}
+
 interface CloudBackupProps {
     versionId: string | null;
     versions: any[];
@@ -52,6 +66,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [activeJobs, setActiveJobs] = useState<BackupJob[]>([]);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [panelMinimized, setPanelMinimized] = useState(false);
+    const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
+    const [showResumeBar, setShowResumeBar] = useState(true);
 
     // Initialize Socket
     useEffect(() => {
@@ -130,7 +146,46 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     useEffect(() => {
         checkConnection();
         loadBackups();
+        loadPendingJobs();
     }, [versionId]);
+
+    const loadPendingJobs = async () => {
+        try {
+            const res = await axios.get('/api/cloud/jobs/pending');
+            setPendingJobs(res.data);
+            if (res.data.length > 0) setShowResumeBar(true);
+        } catch (err) {
+            console.error('Failed to load pending jobs', err);
+        }
+    };
+
+    const handleResumeJob = async (jobId: string) => {
+        try {
+            const res = await axios.post('/api/cloud/jobs/resume', { jobId });
+            if (res.data.success) {
+                setPendingJobs(prev => prev.filter(j => j.jobId !== jobId));
+                setActiveJobs(prev => [...prev, {
+                    jobId: jobId,
+                    target: res.data.target || 'Resuming...',
+                    filesUploaded: res.data.alreadyUploaded || 0,
+                    bytesUploaded: 0,
+                    currentFile: 'Resuming...',
+                    status: 'running'
+                }]);
+            }
+        } catch (err: any) {
+            alert('Resume failed: ' + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleDismissPendingJob = async (jobId: string) => {
+        try {
+            await axios.delete(`/api/cloud/jobs/${jobId}`);
+            setPendingJobs(prev => prev.filter(j => j.jobId !== jobId));
+        } catch (err) {
+            console.error('Failed to dismiss job', err);
+        }
+    };
 
     const checkConnection = async () => {
         try {
@@ -285,6 +340,59 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     onClose={() => { setShowSystemBrowser(false); setMirrorMode(false); }}
                     mode={browserMode}
                 />
+            )}
+
+            {/* Resume Interrupted Uploads Banner */}
+            {pendingJobs.length > 0 && showResumeBar && (
+                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+                    <div className="bg-amber-500 text-white rounded-xl shadow-2xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-full animate-pulse">
+                                <RefreshCw className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold">Interrupted Uploads Detected</h3>
+                                <p className="text-sm text-amber-100">
+                                    {pendingJobs.length} backup{pendingJobs.length > 1 ? 's' : ''} can be resumed •
+                                    {pendingJobs.reduce((acc, j) => acc + j.progress.filesUploaded, 0)} files already uploaded
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => pendingJobs.forEach(j => handleResumeJob(j.jobId))}
+                                className="px-4 py-2 bg-white text-amber-600 font-bold rounded-lg hover:bg-amber-50 transition-colors flex items-center gap-2"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Resume All
+                            </button>
+                            <button
+                                onClick={() => setShowResumeBar(false)}
+                                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                                title="Dismiss"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                    {/* Individual job cards if more than one */}
+                    {pendingJobs.length > 1 && (
+                        <div className="mt-2 space-y-2">
+                            {pendingJobs.map(job => (
+                                <div key={job.jobId} className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-3 flex items-center justify-between border border-amber-200 dark:border-amber-800">
+                                    <div className="flex-1 overflow-hidden">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{job.sourcePath}</p>
+                                        <p className="text-xs text-gray-500">{job.progress.filesUploaded} files • Last: {new Date(job.lastActivity).toLocaleString()}</p>
+                                    </div>
+                                    <div className="flex gap-2 ml-2">
+                                        <button onClick={() => handleResumeJob(job.jobId)} className="px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded hover:bg-amber-600">Resume</button>
+                                        <button onClick={() => handleDismissPendingJob(job.jobId)} className="px-3 py-1 bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 text-xs rounded hover:bg-gray-300 dark:hover:bg-slate-600">Dismiss</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Active Transfers Panel */}
