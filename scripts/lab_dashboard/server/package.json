@@ -25,7 +25,8 @@
         "pidusage": "^4.0.1",
         "simple-git": "^3.30.0",
         "socket.io": "^4.7.2",
-        "tree-kill": "^1.2.2"
+        "tree-kill": "^1.2.2",
+        "uuid": "^13.0.0"
     },
     "devDependencies": {
         "nodemon": "^3.0.2"
