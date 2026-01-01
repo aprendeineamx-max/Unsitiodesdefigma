@@ -66,5 +66,69 @@ module.exports = (dependencies) => {
         }
     });
 
+
+    // POST /snapshot/create - Create a new VSS Snapshot of C:
+    router.post('/snapshot/create', async (req, res) => {
+        const volume = req.body.volume || 'C:\\'; // Default to C:
+
+        const psCommand = `
+            $class = [WMICLASS]"root\\cimv2:Win32_ShadowCopy"
+            $result = $class.Create("${volume}", "ClientAccessible")
+            if ($result.ReturnValue -eq 0) {
+                $shadow = Get-WmiObject Win32_ShadowCopy | Where-Object { $_.ID -eq $result.ShadowID }
+                Write-Output ($shadow.DeviceObject + "|" + $shadow.ID + "|" + $shadow.InstallDate)
+            } else {
+                Write-Error "Failed to create shadow copy. ReturnValue: $($result.ReturnValue)"
+            }
+        `;
+
+        exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+            if (error || stderr) {
+                console.error(`Snapshot Error: ${stderr || error}`);
+                return res.status(500).json({ error: 'Failed to create snapshot. Ensure Admin privileges.' });
+            }
+
+            const output = stdout.trim();
+            if (!output) {
+                return res.status(500).json({ error: 'No output from snapshot creation.' });
+            }
+
+            const [deviceObject, id, installDate] = output.split('|');
+            res.json({
+                success: true,
+                snapshot: {
+                    id: id.trim(),
+                    path: deviceObject.trim(), // e.g., \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopyX
+                    date: installDate.trim(),
+                    volume: volume
+                }
+            });
+        });
+    });
+
+    // POST /snapshot/delete - Delete a Snapshot by ID
+    router.post('/snapshot/delete', async (req, res) => {
+        const { id } = req.body;
+        if (!id) return res.status(400).json({ error: 'Snapshot ID is required' });
+
+        // Safety: Only delete explicitly requested ID
+        const psCommand = `
+            $shadow = Get-WmiObject Win32_ShadowCopy | Where-Object { $_.ID -eq "${id}" }
+            if ($shadow) {
+                $shadow.Delete()
+                Write-Output "Deleted"
+            } else {
+                Write-Error "Snapshot not found"
+            }
+        `;
+
+        exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+            if (error && !stderr.includes('Deleted')) {
+                return res.status(500).json({ error: 'Failed to delete snapshot' });
+            }
+            res.json({ success: true });
+        });
+    });
+
     return router;
 };

@@ -36,6 +36,35 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [browserMode, setBrowserMode] = useState<'file' | 'folder'>('file');
     const [showSystemBrowser, setShowSystemBrowser] = useState(false);
     const [activeTab, setActiveTab] = useState<'drive' | 'sync'>('drive');
+    const [snapshot, setSnapshot] = useState<{ id: string, path: string } | null>(null);
+
+    // VSS Handlers
+    const handleCreateSnapshot = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.post(`${API_URL}/api/system/snapshot/create`);
+            setSnapshot(res.data.snapshot);
+            alert('✅ System Snapshot Created!\nYou can now upload locked files (e.g. NTUSER.DAT).');
+        } catch (err: any) {
+            alert('Snapshot failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteSnapshot = async () => {
+        if (!snapshot) return;
+        try {
+            setLoading(true);
+            await axios.post(`${API_URL}/api/system/snapshot/delete`, { id: snapshot.id });
+            setSnapshot(null);
+            alert('Snapshot Deleted');
+        } catch (err: any) {
+            alert('Delete failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         checkConnection();
@@ -97,13 +126,23 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         setUploading(true);
         setShowSystemBrowser(false);
         try {
-            if (browserMode === 'folder') {
-                alert(`Started background ZIP & Upload for folder: ${sourcePath}\nThis may take a while.`);
-            } else {
-                alert(`Started background upload for ${sourcePath}`);
+            const message = browserMode === 'folder'
+                ? `Started background ZIP in ${snapshot ? 'SNAPSHOT MODE' : 'Standard Mode'} for: ${sourcePath}`
+                : `Started upload in ${snapshot ? 'SNAPSHOT MODE' : 'Standard Mode'} for: ${sourcePath}`;
+
+            alert(message);
+
+            const payload: any = { sourcePath };
+
+            // If Snapshot Active, calculate Shadow Path
+            if (snapshot) {
+                // Remove Drive Letter (C:) and append to Snapshot Device Object
+                // Example: C:\Windows -> \Windows -> \\?\GLOBALROOT\Device\...\Windows
+                const relativePath = sourcePath.replace(/^[a-zA-Z]:/, '');
+                payload.readPath = `${snapshot.path}${relativePath}`;
             }
 
-            await axios.post(`${API_URL}/api/cloud/transfer`, { sourcePath });
+            await axios.post(`${API_URL}/api/cloud/transfer`, payload);
             loadBackups();
             alert('✅ Upload saved to Cloud successfully');
         } catch (err: any) {
@@ -248,6 +287,41 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     >
                         <Activity className="w-4 h-4" /> Real-Time Sync
                     </button>
+
+                    <div className="pt-4 pb-2">
+                        <div className="w-full border-t border-gray-200 dark:border-slate-800"></div>
+                        <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">System Protection (VSS)</p>
+                    </div>
+
+                    {!snapshot ? (
+                        <button
+                            onClick={handleCreateSnapshot}
+                            disabled={loading}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                        >
+                            <div className="p-1 bg-amber-100 dark:bg-amber-900/30 rounded">
+                                <HardDrive className="w-3 h-3" />
+                            </div>
+                            Create Snapshot
+                        </button>
+                    ) : (
+                        <div className="px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Check className="w-4 h-4 text-amber-600" />
+                                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Snapshot Active</span>
+                            </div>
+                            <p className="text-[10px] text-amber-600/80 break-all mb-2 leading-tight">
+                                ID: ...{snapshot.id.slice(-6)}
+                            </p>
+                            <button
+                                onClick={handleDeleteSnapshot}
+                                disabled={loading}
+                                className="w-full py-1 bg-white dark:bg-slate-800 text-xs font-medium text-red-500 border border-red-200 dark:border-red-900 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                                Delete Snapshot
+                            </button>
+                        </div>
+                    )}
                 </nav>
 
                 <div className="p-4 border-t border-gray-200 dark:border-slate-800">

@@ -344,16 +344,21 @@ module.exports = (dependencies) => {
     // POST /transfer - Upload a local server-side file to Cloud (S3)
     // Used for System Backup (uploading files from C:/ directly)
     // Enhanced to support Directory Uploads (via Zip)
+    // POST /transfer - Upload a local server-side file to Cloud (S3)
+    // Used for System Backup (uploading files from C:/ directly)
+    // Enhanced to support Directory Uploads (via Zip) AND VSS Snapshots (via readPath)
     router.post('/transfer', async (req, res) => {
-        const { sourcePath, targetPath } = req.body;
-        if (!sourcePath || !fs.existsSync(sourcePath)) {
+        const { sourcePath, targetPath, readPath } = req.body;
+        const actualPath = readPath || sourcePath;
+
+        if (!actualPath || !fs.existsSync(actualPath)) {
             return res.status(400).json({ error: 'Valid source path required' });
         }
 
         try {
-            const stats = fs.statSync(sourcePath);
+            const stats = fs.statSync(actualPath);
             const isDirectory = stats.isDirectory();
-            const fileName = path.basename(sourcePath);
+            const fileName = path.basename(sourcePath || actualPath); // Keep original name if possible
 
             let s3Key, fileStream, uploadSize, contentType;
 
@@ -368,7 +373,7 @@ module.exports = (dependencies) => {
                     output.on('close', resolve);
                     archive.on('error', reject);
                     archive.pipe(output);
-                    archive.directory(sourcePath, fileName); // Store inside a folder with same name
+                    archive.directory(actualPath, fileName); // Read from Shadow Path, store as "fileName"
                     archive.finalize();
                 });
 
@@ -379,13 +384,12 @@ module.exports = (dependencies) => {
 
                 dependencies.broadcastLog('system', `📦 Zip complete (${(uploadSize / 1024 / 1024).toFixed(2)} MB). Uploading...`, 'info');
 
-                // Clean up zip after upload (we'll do it in finally or after await)
             } else {
                 // File: Upload directly
                 s3Key = targetPath || `system-backups/${os.hostname()}/${Date.now()}_${fileName}`;
-                fileStream = fs.createReadStream(sourcePath);
+                fileStream = fs.createReadStream(actualPath); // Read from Shadow or Real path
                 uploadSize = stats.size;
-                contentType = 'application/octet-stream'; // S3 auto-detects usually, but generic is fine
+                contentType = 'application/octet-stream';
             }
 
             const uploadParams = {
@@ -394,9 +398,10 @@ module.exports = (dependencies) => {
                 Body: fileStream,
                 ContentType: contentType,
                 Metadata: {
-                    originalPath: sourcePath,
+                    originalPath: sourcePath, // Keep record of C:\ path
                     backupDate: new Date().toISOString(),
-                    type: isDirectory ? 'directory-zip' : 'file'
+                    type: isDirectory ? 'directory-zip' : 'file',
+                    mode: readPath ? 'vss-snapshot' : 'standard'
                 }
             };
 
@@ -406,12 +411,8 @@ module.exports = (dependencies) => {
 
             if (isDirectory) {
                 // Cleanup temp zip
-                fs.unlinkSync(path.join(LABS_DIR, `_transfer_${Date.now()}.zip`)); // Re-construct path carefully or scope it. 
-                // Actually the scope of tempZipPath was block-scoped. Let's fix that in next iteration or just use fs.unlink on the known path logic.
-                // Correct logic: find the file we just created. 
-                // To be safe/simple without scope issues:
-                const entries = fs.readdirSync(LABS_DIR).filter(f => f.startsWith('_transfer_') && f.endsWith('.zip'));
-                entries.forEach(f => fs.unlinkSync(path.join(LABS_DIR, f)));
+                fs.readdirSync(LABS_DIR).filter(f => f.startsWith('_transfer_') && f.endsWith('.zip'))
+                    .forEach(f => { try { fs.unlinkSync(path.join(LABS_DIR, f)); } catch (e) { } });
             }
 
             dependencies.broadcastLog('system', `✅ Server-Side Upload Complete: ${fileName}`, 'success');
