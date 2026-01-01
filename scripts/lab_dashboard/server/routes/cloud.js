@@ -494,6 +494,11 @@ module.exports = (dependencies) => {
                 activeJobs.delete(jobId);
             });
 
+            // Real-time file list updates
+            engine.on('fileUploaded', (fileInfo) => {
+                dependencies.io.emit('file:uploaded', fileInfo);
+            });
+
             // Start async
             engine.startBackup(sourcePath, targetPrefix);
 

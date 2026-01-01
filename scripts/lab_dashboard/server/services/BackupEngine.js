@@ -161,6 +161,14 @@ class BackupEngine extends EventEmitter {
             this.stats.filesUploaded++;
             this.stats.bytesUploaded += stats.size;
 
+            // Emit file uploaded event for real-time UI update
+            this.emit('fileUploaded', {
+                key: s3Key,
+                size: stats.size,
+                lastModified: new Date().toISOString(),
+                jobId: this.jobId
+            });
+
             // Emit progress every 5 files or so to avoid spamming
             if (this.stats.filesUploaded % 5 === 0) {
                 this.emit('progress', this.stats);

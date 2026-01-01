@@ -51,6 +51,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [mirrorMode, setMirrorMode] = useState(false);
     const [activeJobs, setActiveJobs] = useState<BackupJob[]>([]);
     const [socket, setSocket] = useState<Socket | null>(null);
+    const [panelMinimized, setPanelMinimized] = useState(false);
 
     // Initialize Socket
     useEffect(() => {
@@ -90,16 +91,39 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             setActiveJobs(prev => prev.filter(j => j.jobId !== data.jobId));
         };
 
+        // Real-time file list updates
+        const onFileUploaded = (fileInfo: any) => {
+            setBackups(prev => {
+                // Avoid duplicates
+                if (prev.some(b => b.key === fileInfo.key)) return prev;
+                // Add new file at the beginning
+                return [{
+                    key: fileInfo.key,
+                    size: fileInfo.size,
+                    lastModified: fileInfo.lastModified,
+                    versionId: '',
+                    etag: ''
+                }, ...prev];
+            });
+            // Update storage info
+            setStorageInfo(prev => ({
+                ...prev,
+                used: prev.used + (fileInfo.size / (1024 * 1024))
+            }));
+        };
+
         socket.on('backup:progress', onProgress);
         socket.on('backup:complete', onComplete);
         socket.on('backup:error', onError);
         socket.on('backup:canceled', onCanceled);
+        socket.on('file:uploaded', onFileUploaded);
 
         return () => {
             socket.off('backup:progress', onProgress);
             socket.off('backup:complete', onComplete);
             socket.off('backup:error', onError);
             socket.off('backup:canceled', onCanceled);
+            socket.off('file:uploaded', onFileUploaded);
         };
     }, [socket]);
 
@@ -265,40 +289,49 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
             {/* Active Transfers Panel */}
             {activeJobs.length > 0 && (
-                <div className="fixed bottom-6 right-6 w-96 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden z-50">
-                    <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
+                <div className={`fixed bottom-6 right-6 ${panelMinimized ? 'w-64' : 'w-96'} bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden z-50 transition-all duration-300`}>
+                    <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between cursor-pointer" onClick={() => setPanelMinimized(!panelMinimized)}>
                         <h3 className="font-medium flex items-center gap-2">
                             <Activity className="w-4 h-4 animate-pulse" />
                             Active Transfers ({activeJobs.length})
                         </h3>
+                        <button className="p-1 hover:bg-gray-700 rounded transition-colors" title={panelMinimized ? 'Expand' : 'Minimize'}>
+                            {panelMinimized ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            )}
+                        </button>
                     </div>
-                    <div className="max-h-80 overflow-y-auto p-2 space-y-2">
-                        {activeJobs.map(job => (
-                            <div key={job.jobId} className="bg-gray-50 dark:bg-slate-900 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="overflow-hidden flex-1">
-                                        <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate" title={job.target}>{job.target?.split('/').pop() || 'Job'}</h4>
-                                        <p className="text-xs text-gray-500 truncate">{job.currentFile?.split('\\').pop()}</p>
+                    {!panelMinimized && (
+                        <div className="max-h-80 overflow-y-auto p-2 space-y-2">
+                            {activeJobs.map(job => (
+                                <div key={job.jobId} className="bg-gray-50 dark:bg-slate-900 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="overflow-hidden flex-1">
+                                            <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate" title={job.target}>{job.target?.split('/').pop() || 'Job'}</h4>
+                                            <p className="text-xs text-gray-500 truncate">{job.currentFile?.split('\\').pop()}</p>
+                                        </div>
+                                        <div className="flex gap-1 ml-2">
+                                            <button onClick={(e) => { e.stopPropagation(); handleCancelJob(job.jobId, false); }} className="p-1.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-600 rounded" title="Stop (Keep Files)">
+                                                <Square className="w-3 h-3" />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleCancelJob(job.jobId, true); }} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 rounded" title="Stop & Undo (Delete Files)">
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1 ml-2">
-                                        <button onClick={() => handleCancelJob(job.jobId, false)} className="p-1.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-600 rounded" title="Stop (Keep Files)">
-                                            <Square className="w-3 h-3" />
-                                        </button>
-                                        <button onClick={() => handleCancelJob(job.jobId, true)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 rounded" title="Stop & Undo (Delete Files)">
-                                            <X className="w-3 h-3" />
-                                        </button>
+                                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                        <span>{job.filesUploaded} files</span>
+                                        <span>{formatSize(job.bytesUploaded)}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div className={`h-full ${job.status === 'error' ? 'bg-red-500' : job.status === 'completed' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} style={{ width: '100%' }} />
                                     </div>
                                 </div>
-                                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                                    <span>{job.filesUploaded} files</span>
-                                    <span>{formatSize(job.bytesUploaded)}</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <div className={`h-full ${job.status === 'error' ? 'bg-red-500' : job.status === 'completed' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} style={{ width: '100%' }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
