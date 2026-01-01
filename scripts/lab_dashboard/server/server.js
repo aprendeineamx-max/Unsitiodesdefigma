@@ -85,6 +85,20 @@ app.use('/api/cloud', require('./routes/cloud')(dependencies));
 app.use('/api/system', require('./routes/system')(dependencies));
 app.use('/api/sync', require('./routes/sync'));
 
+// Serve Frontend (Production Build)
+const CLIENT_BUILD_PATH = path.join(__dirname, '../client/dist');
+if (fs.existsSync(CLIENT_BUILD_PATH)) {
+    console.log(`Serving Frontend from ${CLIENT_BUILD_PATH}`);
+    app.use(express.static(CLIENT_BUILD_PATH));
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path.join(CLIENT_BUILD_PATH, 'index.html'));
+        }
+    });
+} else {
+    console.log('Frontend build not found. API Mode only.');
+}
+
 // Start Server
 const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {

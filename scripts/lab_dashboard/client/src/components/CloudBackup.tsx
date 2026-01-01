@@ -33,8 +33,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
-    const [showSystemBrowser, setShowSystemBrowser] = useState(false);
-    const [activeTab, setActiveTab] = useState<'drive' | 'sync'>('drive');
+    const [browserMode, setBrowserMode] = useState<'file' | 'folder'>('file');
 
     useEffect(() => {
         checkConnection();
@@ -96,7 +95,12 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         setUploading(true);
         setShowSystemBrowser(false);
         try {
-            alert(`Started background upload for ${sourcePath}`);
+            if (browserMode === 'folder') {
+                alert(`Started background ZIP & Upload for folder: ${sourcePath}\nThis may take a while.`);
+            } else {
+                alert(`Started background upload for ${sourcePath}`);
+            }
+
             await axios.post(`${API_URL}/api/cloud/transfer`, { sourcePath });
             loadBackups();
             alert('✅ Upload saved to Cloud successfully');
@@ -107,63 +111,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
     };
 
-    // Version-specific Backup (if version selected)
-    const handleCreateVersionBackup = async () => {
-        if (!versionId) return;
-        setUploading(true);
-        try {
-            await axios.post(`${API_URL}/api/cloud/backup/${versionId}`);
-            loadBackups();
-            alert('✅ Backup created successfully');
-        } catch (err: any) {
-            alert('Backup failed: ' + (err.response?.data?.error || err.message));
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    // Import ZIP to Workspace
-    const handleImportToWorkspace = async (key: string) => {
-        if (!confirm(`Import "${key}" to your local workspace? This will create a new project.`)) return;
-
-        try {
-            const res = await axios.post(`${API_URL}/api/cloud/import`, { key });
-            alert(`✅ Project imported as "${res.data.versionId}"`);
-            // Trigger global refresh? App.tsx handles socket 'ZIP_RESTORED'/'state-update' events, so it should auto refresh sidebar
-        } catch (err: any) {
-            alert('Import failed: ' + (err.response?.data?.error || err.message));
-        }
-    };
-
-    const handleDelete = async (backupKey: string) => {
-        if (!confirm('Delete this file permanently from Cloud?')) return;
-
-        try {
-            await axios.delete(`${API_URL}/api/cloud/delete`, {
-                data: { backupKey }
-            });
-            loadBackups();
-        } catch (err: any) {
-            alert('Delete failed: ' + (err.response?.data?.error || err.message));
-        }
-    };
-
-    const formatSize = (bytes: number) => {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-    };
-
-    const filteredBackups = backups.filter(b => {
-        const matchesSearch = b.key.toLowerCase().includes(searchTerm.toLowerCase());
-        if (!matchesSearch) return false;
-
-        if (filter === 'uploads') return b.key.includes('uploads/');
-        if (filter === 'backups') return !b.key.includes('uploads/');
-        return true;
-    });
-
-    const storagePercent = Math.min((storageInfo.used / storageInfo.total) * 100, 100);
+    // ...
 
     return (
         <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
@@ -171,7 +119,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                 <SystemBrowser
                     onUpload={handleSystemUpload}
                     onClose={() => setShowSystemBrowser(false)}
-                    mode="file"
+                    mode={browserMode}
                 />
             )}
             {/* Sidebar / Filter Panel */}
@@ -186,13 +134,23 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                         <span className="text-sm">New Upload</span>
                     </button>
 
-                    <button
-                        onClick={() => setShowSystemBrowser(true)}
-                        className="mt-2 w-full py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <HardDrive className="w-4 h-4" />
-                        Browse PC System
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button
+                            onClick={() => { setBrowserMode('file'); setShowSystemBrowser(true); }}
+                            className="py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-xs hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex flex-col items-center justify-center gap-1"
+                        >
+                            <File className="w-4 h-4" />
+                            File Backup
+                        </button>
+                        <button
+                            onClick={() => { setBrowserMode('folder'); setShowSystemBrowser(true); }}
+                            className="py-2 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl font-medium text-xs hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-colors flex flex-col items-center justify-center gap-1"
+                        >
+                            <Folder className="w-4 h-4" />
+                            Folder Zip
+                        </button>
+                    </div>
+
                     {versionId && (
                         <button
                             onClick={handleCreateVersionBackup}
@@ -239,8 +197,10 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
                 <div className="p-4 border-t border-gray-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-500">Storage Used</span>
-                        <span className="text-xs text-gray-400">{storageInfo.used.toFixed(1)}MB / 25GB</span>
+                        <span className="text-xs font-medium text-gray-500">
+                            Storage Used <span className="ml-1 px-1 bg-green-100 text-green-700 rounded text-[10px]">v2.1</span>
+                        </span>
+                        <span className="text-xs text-gray-400">{storageInfo.used.toFixed(1)}MB / 1TB Plan</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
                         <div

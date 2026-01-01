@@ -180,7 +180,7 @@ export const SystemBrowser: React.FC<SystemBrowserProps> = ({ onUpload, onClose,
                             className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
                         >
                             <Upload className="w-4 h-4" />
-                            Watch This Folder
+                            Select Current Folder
                         </button>
                     ) : (
                         <button
