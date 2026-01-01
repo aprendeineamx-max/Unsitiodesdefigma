@@ -538,5 +538,76 @@ module.exports = (dependencies) => {
         }
     });
 
+    // POST /jobs/stop-all - Stop all active jobs and optionally clean
+    router.post('/jobs/stop-all', async (req, res) => {
+        const { clean } = req.body;
+        const stoppedJobs = [];
+
+        try {
+            for (const [jobId, engine] of activeJobs.entries()) {
+                engine.stop();
+                if (clean) {
+                    await engine.cleanup();
+                }
+                stoppedJobs.push(jobId);
+                dependencies.io.emit('backup:canceled', { jobId });
+            }
+            activeJobs.clear();
+            dependencies.broadcastLog('system', `🛑 Stopped ${stoppedJobs.length} active jobs.`, 'warn');
+            res.json({ success: true, stoppedCount: stoppedJobs.length, cleaned: !!clean });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // POST /purge - Delete ALL objects from the bucket (DANGER)
+    router.post('/purge', async (req, res) => {
+        try {
+            dependencies.broadcastLog('system', '🚨 PURGE: Starting complete bucket cleanup...', 'error');
+
+            // List all objects
+            let allKeys = [];
+            let continuationToken = null;
+
+            do {
+                const params = {
+                    Bucket: BUCKET_NAME
+                };
+                if (continuationToken) params.ContinuationToken = continuationToken;
+
+                const listResult = await s3.listObjectsV2(params).promise();
+                if (listResult.Contents) {
+                    allKeys = allKeys.concat(listResult.Contents.map(o => ({ Key: o.Key })));
+                }
+                continuationToken = listResult.IsTruncated ? listResult.NextContinuationToken : null;
+            } while (continuationToken);
+
+            if (allKeys.length === 0) {
+                dependencies.broadcastLog('system', '✅ PURGE: Bucket is already empty.', 'info');
+                return res.json({ success: true, deletedCount: 0 });
+            }
+
+            // Delete in batches of 1000 (S3 limit)
+            const batchSize = 1000;
+            let deletedCount = 0;
+
+            for (let i = 0; i < allKeys.length; i += batchSize) {
+                const batch = allKeys.slice(i, i + batchSize);
+                await s3.deleteObjects({
+                    Bucket: BUCKET_NAME,
+                    Delete: { Objects: batch }
+                }).promise();
+                deletedCount += batch.length;
+                dependencies.broadcastLog('system', `🧹 PURGE: Deleted ${deletedCount}/${allKeys.length} objects...`, 'warn');
+            }
+
+            dependencies.broadcastLog('system', `✅ PURGE COMPLETE: Deleted ${deletedCount} objects.`, 'info');
+            res.json({ success: true, deletedCount });
+        } catch (err) {
+            console.error('Purge error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     return router;
 };
