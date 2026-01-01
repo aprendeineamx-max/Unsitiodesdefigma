@@ -5,7 +5,14 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
     plugins: [react()],
     server: {
-        host: true, // Listen on all addresses
-        port: 5175 // Use 5175 to allow v19(5173) and v21(5174)
+        host: true,
+        port: 5175,
+        proxy: {
+            '/api': 'http://localhost:3000',
+            '/socket.io': {
+                target: 'http://localhost:3000',
+                ws: true
+            }
+        }
     }
 })

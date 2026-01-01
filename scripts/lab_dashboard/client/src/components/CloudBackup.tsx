@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { SystemBrowser } from './SystemBrowser';
 import { SyncManager } from './SyncManager';
 import {
     Cloud, Upload, Download, Trash2, RefreshCw, HardDrive,
-    File, Folder, Clock, Check, AlertCircle, Search, Grid, List,
+    File as FileIcon, Folder as FolderIcon, Clock, Check, AlertCircle, Search, Grid, List,
     FileArchive, ArrowUpFromLine, Plus, Activity
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
@@ -29,7 +30,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [connected, setConnected] = useState(false);
-    const [storageInfo, setStorageInfo] = useState({ used: 0, total: 1000000 }); // 1TB Limit as requested (Confirmed V2)
+    const [backupProgress, setBackupProgress] = useState<any>(null);
+    const [storageInfo, setStorageInfo] = useState({ used: 0, total: 1000000 }); // 1TB Limit
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
@@ -37,6 +39,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [showSystemBrowser, setShowSystemBrowser] = useState(false);
     const [activeTab, setActiveTab] = useState<'drive' | 'sync'>('drive');
     const [snapshot, setSnapshot] = useState<{ id: string, path: string } | null>(null);
+    const [mirrorMode, setMirrorMode] = useState(false); // To distinguish Zip vs Mirror
 
     // VSS Handlers
     const handleCreateSnapshot = async () => {
@@ -69,6 +72,18 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     useEffect(() => {
         checkConnection();
         loadBackups();
+
+        // Socket listener for progress
+        const socket = io(API_URL);
+        socket.on('connect', () => console.log('CloudBackup connected to socket'));
+        socket.on('backup:progress', (stats) => setBackupProgress(stats));
+        socket.on('backup:complete', (stats) => {
+            setBackupProgress(null);
+            loadBackups();
+            alert(`✅ Mirror Complete! Uploaded ${stats.filesUploaded} files.`);
+        });
+
+        return () => { socket.disconnect(); };
     }, [versionId]);
 
     const checkConnection = async () => {
@@ -83,8 +98,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const loadBackups = async () => {
         setLoading(true);
         try {
-            // If version selected, we could filter by version, but User wants "Google Drive" experience
-            // So we list ALL files and let sidebar/filter handle view
             const endpoint = versionId
                 ? `${API_URL}/api/cloud/list/${versionId}`
                 : `${API_URL}/api/cloud/list`;
@@ -92,7 +105,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             const res = await axios.get(endpoint);
             setBackups(res.data);
 
-            // Calculate storage
             const totalSize = res.data.reduce((acc: number, b: Backup) => acc + b.size, 0);
             setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
         } catch (err) {
@@ -102,7 +114,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
     };
 
-    // Generic file upload
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         setUploading(true);
         for (const file of acceptedFiles) {
@@ -121,7 +132,35 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
-    // Handle System Browser Upload (Server-Side)
+    // Handle Mirroring Specific Folder
+    const handleMirrorSpecificFolder = async (path: string) => {
+        setShowSystemBrowser(false);
+        const useSnapshot = snapshot && confirm(`Use VSS Snapshot for this backup?\n(Recommended for System Folders)`);
+
+        let actualSource = path;
+
+        // Logic to prepend snapshot path if needed
+        if (useSnapshot && snapshot) {
+            const relativePath = path.replace(/^[a-zA-Z]:/, '');
+            actualSource = snapshot.path + relativePath; // This is actually complex because BackupEngine expects sourcePath to be the root.
+            // Wait, the API handles the recursive walk.
+            // If we pass a VSS path to API, it works.
+            // So we construct the VSS path manually here:
+            actualSource = `${snapshot.path}${relativePath}`;
+        }
+
+        try {
+            await axios.post(`${API_URL}/api/cloud/mirror`, {
+                sourcePath: actualSource,
+                snapshotMode: !!useSnapshot
+            });
+            alert(`✅ Mirror Started for ${path}`);
+        } catch (err: any) {
+            alert('Mirror failed: ' + (err.response?.data?.error || err.message));
+        }
+    };
+
+    // Handle System Browser Upload (File or Zip)
     const handleSystemUpload = async (sourcePath: string) => {
         setUploading(true);
         setShowSystemBrowser(false);
@@ -134,10 +173,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
             const payload: any = { sourcePath };
 
-            // If Snapshot Active, calculate Shadow Path
             if (snapshot) {
-                // Remove Drive Letter (C:) and append to Snapshot Device Object
-                // Example: C:\Windows -> \Windows -> \\?\GLOBALROOT\Device\...\Windows
                 const relativePath = sourcePath.replace(/^[a-zA-Z]:/, '');
                 payload.readPath = `${snapshot.path}${relativePath}`;
             }
@@ -152,7 +188,21 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
     };
 
-    // ...
+    // Generic Full Drive Mirror
+    const handleFullMirror = async () => {
+        if (!snapshot) return;
+        if (!confirm('WARNING: You are about to upload the entire C: Drive structure to the Cloud.\nThis operation will take a significant amount of time.')) return;
+
+        try {
+            await axios.post(`${API_URL}/api/cloud/mirror`, {
+                sourcePath: snapshot.path,
+                snapshotMode: true
+            });
+            alert('✅ Full Mirror Started in Background!\nYou can monitor progress in the sidebar.');
+        } catch (err: any) {
+            alert('Mirror failed: ' + (err.response?.data?.error || err.message));
+        }
+    };
 
     const handleCreateVersionBackup = async () => {
         if (!versionId) return;
@@ -211,8 +261,15 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
             {showSystemBrowser && (
                 <SystemBrowser
-                    onUpload={handleSystemUpload}
-                    onClose={() => setShowSystemBrowser(false)}
+                    onUpload={(path) => {
+                        if (mirrorMode) {
+                            handleMirrorSpecificFolder(path);
+                        } else {
+                            handleSystemUpload(path);
+                        }
+                        setMirrorMode(false);
+                    }}
+                    onClose={() => { setShowSystemBrowser(false); setMirrorMode(false); }}
                     mode={browserMode}
                 />
             )}
@@ -233,15 +290,26 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                             onClick={() => { setBrowserMode('file'); setShowSystemBrowser(true); }}
                             className="py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-xs hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex flex-col items-center justify-center gap-1"
                         >
-                            <File className="w-4 h-4" />
+                            <FileIcon className="w-4 h-4" />
                             File Backup
                         </button>
                         <button
                             onClick={() => { setBrowserMode('folder'); setShowSystemBrowser(true); }}
                             className="py-2 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl font-medium text-xs hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-colors flex flex-col items-center justify-center gap-1"
                         >
-                            <Folder className="w-4 h-4" />
+                            <FolderIcon className="w-4 h-4" />
                             Folder Zip
+                        </button>
+                    </div>
+
+                    <div className="mt-2">
+                        <button
+                            onClick={() => { setBrowserMode('folder'); setMirrorMode(true); setShowSystemBrowser(true); }}
+                            className="w-full py-2 bg-pink-100 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded-xl font-medium text-xs hover:bg-pink-200 dark:hover:bg-pink-900/40 transition-colors flex items-center justify-center gap-2"
+                            title="Recursively mirror a folder to Cloud (keep structure)"
+                        >
+                            <Upload className="w-4 h-4" />
+                            Mirror Any Folder
                         </button>
                     </div>
 
@@ -320,6 +388,30 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                             >
                                 Delete Snapshot
                             </button>
+
+                            <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+                                <button
+                                    onClick={handleFullMirror}
+                                    className="w-full py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded shadow-sm hover:from-amber-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Cloud className="w-3 h-3" />
+                                    Full Drive Mirror
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Progress Indicator */}
+                    {backupProgress && (
+                        <div className="mt-4 mx-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Backup Progress</span>
+                                <span className="text-xs text-blue-600">{backupProgress.filesUploaded} files</span>
+                            </div>
+                            <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-1 mb-2">
+                                <div className="bg-blue-500 h-1 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                            </div>
+                            <p className="text-[10px] text-blue-500 truncate">{backupProgress.currentFile.split('\\').pop()}</p>
                         </div>
                     )}
                 </nav>
@@ -327,7 +419,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                 <div className="p-4 border-t border-gray-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-gray-500">
-                            Storage Used <span className="ml-1 px-1 bg-green-100 text-green-700 rounded text-[10px]">v2.1</span>
+                            Storage Used <span className="ml-1 px-1 bg-green-100 text-green-700 rounded text-[10px]">v3.0</span>
                         </span>
                         <span className="text-xs text-gray-400">{storageInfo.used.toFixed(1)}MB / 1TB Plan</span>
                     </div>
@@ -390,7 +482,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                         {filteredBackups.map(item => (
                                             <div key={item.key} className="group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative">
                                                 <div className="aspect-square bg-gray-50 dark:bg-slate-900 rounded-lg mb-3 flex items-center justify-center text-gray-300 dark:text-slate-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 transition-colors">
-                                                    {item.key.endsWith('.zip') ? <FileArchive className="w-12 h-12" /> : <File className="w-12 h-12" />}
+                                                    {item.key.endsWith('.zip') ? <FileArchive className="w-12 h-12" /> : <FileIcon className="w-12 h-12" />}
                                                 </div>
                                                 <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.key}>{item.key.split('/').pop()}</h4>
                                                 <p className="text-xs text-gray-500 mb-4">{formatSize(item.size)}</p>
@@ -422,7 +514,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                             {filteredBackups.map(item => (
                                                 <tr key={item.key} className="bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800/50 group">
                                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white flex items-center gap-3">
-                                                        {item.key.endsWith('.zip') ? <FileArchive className="w-4 h-4 text-orange-500" /> : <File className="w-4 h-4 text-blue-500" />}
+                                                        {item.key.endsWith('.zip') ? <FileArchive className="w-4 h-4 text-orange-500" /> : <FileIcon className="w-4 h-4 text-blue-500" />}
                                                         {item.key.split('/').pop()}
                                                     </td>
                                                     <td className="px-6 py-4">{formatSize(item.size)}</td>

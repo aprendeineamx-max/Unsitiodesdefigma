@@ -7,7 +7,11 @@ const fs = require('fs-extra');
 const path = require('path');
 
 module.exports = (dependencies) => {
-    const { LABS_DIR, broadcastLog, broadcastState } = dependencies;
+    const { LABS_DIR, broadcastLog, broadcastState, io } = dependencies;
+    const BackupEngine = require('../services/BackupEngine');
+    const os = require('os');
+
+    // Configure S3 Client for Vultr
 
     // Configure S3 Client for Vultr
     const s3 = new AWS.S3({
@@ -425,6 +429,55 @@ module.exports = (dependencies) => {
 
         } catch (err) {
             console.error('Transfer error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // POST /mirror - Start Full Drive/Recursive Backup
+    // Uses BackupEngine to walk VSS or Standard path and mirror to S3
+    router.post('/mirror', async (req, res) => {
+        const { sourcePath, snapshotMode } = req.body;
+
+        if (!sourcePath) return res.status(400).json({ error: 'Source path required' });
+
+        // Logic:
+        // If snapshotMode is true, sourcePath is the SNAPSHOT root (e.g., \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1)
+        // We want to upload it to S3 under backups/<HOSTNAME>/C_DRIVE/
+
+        const hostname = os.hostname();
+        const driveLetter = 'C'; // Assuming C for now, or extract from request
+        const targetPrefix = `backups/${hostname}/${driveLetter}_DRIVE`;
+
+        try {
+            dependencies.broadcastLog('system', `🚀 Starting Full Backup Mirror... Target: ${targetPrefix}`, 'info');
+
+            const engine = new BackupEngine(s3, BUCKET_NAME, dependencies);
+
+            // Hook events to Socket
+            engine.on('progress', (stats) => {
+                dependencies.io.emit('backup:progress', stats);
+            });
+
+            engine.on('complete', (stats) => {
+                dependencies.broadcastLog('system', `✅ Mirror Complete! Uploaded ${stats.filesUploaded} files.`, 'success');
+                dependencies.io.emit('backup:complete', stats);
+            });
+
+            engine.on('error', (err) => {
+                dependencies.broadcastLog('system', `❌ Mirror Error: ${err.message}`, 'error');
+            });
+
+            // Start async (don't wait for HTTP response)
+            engine.startBackup(sourcePath, targetPrefix);
+
+            res.json({
+                success: true,
+                message: 'Backup started in background',
+                target: targetPrefix
+            });
+
+        } catch (err) {
+            console.error('Mirror start error:', err);
             res.status(500).json({ error: err.message });
         }
     });
