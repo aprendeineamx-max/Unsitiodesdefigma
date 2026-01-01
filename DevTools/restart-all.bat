@@ -1,40 +1,29 @@
 @echo off
 REM Restart Full Lab Manager System
-REM Kills and restarts backend and BOTH frontends
+REM New Unified Architecture (Port 3000)
 
 echo ================================================
-echo    Lab Manager - Full System Restart
+echo    Lab Manager - Unified Server Restart
 echo ================================================
 echo.
 
-echo [1/4] Killing all node processes...
+echo [1/2] Killing all node processes...
 taskkill /F /IM node.exe 2>NUL
 ping 127.0.0.1 -n 3 > NUL
 
-echo [2/4] Starting backend (port 3000)...
-cd "%~dp0..\scripts\lab_dashboard\server"
-start "Lab Manager Backend" cmd /k "node server.js"
+echo [2/2] Starting Unified Server (Backend + Frontend)...
+cd "%~dp0..\scripts\lab_dashboard"
+start "Lab Manager Unified Server" cmd /k "node server/server.js"
 ping 127.0.0.1 -n 3 > NUL
-
-echo [3/4] Starting frontend dev (port 5173)...
-cd "%~dp0..\scripts\lab_dashboard\client"
-start "Lab Manager Frontend Dev" cmd /k "npm run dev -- --port 5173 --host"
-ping 127.0.0.1 -n 3 > NUL
-
-echo [4/4] Starting frontend preview (port 4173)...
-start "Lab Manager Frontend Preview" cmd /k "npm run preview"
 
 echo.
 echo ================================================
-echo ✅ Full system restarted!
+echo ✅ Unified Server Restarted!
 echo ================================================
 echo.
-echo Available URLs:
-echo   - Backend API:      http://localhost:3000
-echo   - Frontend Dev:     http://localhost:5173  (hot reload)
-echo   - Frontend Preview: http://localhost:4173  (production)
+echo URL: http://localhost:3000 (Backend API + Frontend)
 echo.
-echo Use 5173 for development (hot reload)
-echo Use 4173 for testing production build
+echo Note: This script now launches a SINGLE process.
+echo Files are served statically from /client/dist.
 echo.
 pause

@@ -737,7 +737,7 @@ function App() {
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
         { id: 'logs', label: 'Console Logs', icon: Terminal, color: 'text-green-500' },
         { id: 'console', label: 'Browser Console', icon: Bug, color: 'text-purple-500' },
-        { id: 'cloud', label: 'Cloud Storage', icon: Cloud, color: 'text-indigo-500' },
+        { id: 'cloud', label: 'Cloud Backup v2', icon: Cloud, color: 'text-amber-500' },
         { id: 'explorer', label: 'File Explorer', icon: FolderOpen, color: 'text-yellow-500' },
         { id: 'archive', label: 'Archive', icon: GitBranch, color: 'text-cyan-500' },
         { id: 'trash', label: 'Trash', icon: Trash2, color: 'text-orange-500' },

@@ -34,6 +34,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'backups' | 'uploads'>('all');
     const [browserMode, setBrowserMode] = useState<'file' | 'folder'>('file');
+    const [showSystemBrowser, setShowSystemBrowser] = useState(false);
+    const [activeTab, setActiveTab] = useState<'drive' | 'sync'>('drive');
 
     useEffect(() => {
         checkConnection();
@@ -112,6 +114,59 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     };
 
     // ...
+
+    const handleCreateVersionBackup = async () => {
+        if (!versionId) return;
+        setUploading(true);
+        try {
+            await axios.post(`${API_URL}/api/cloud/backup`, { versionId });
+            loadBackups();
+            alert('✅ Backup created successfully');
+        } catch (err: any) {
+            alert('Backup failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const storagePercent = (storageInfo.used / storageInfo.total) * 100;
+
+    const handleDelete = async (key: string) => {
+        if (!confirm('Are you sure you want to delete this file?')) return;
+        try {
+            await axios.post(`${API_URL}/api/cloud/delete`, { key });
+            loadBackups();
+        } catch (err: any) {
+            alert('Delete failed: ' + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleImportToWorkspace = async (key: string) => {
+        if (!confirm('Import this project to workspace?')) return;
+        setUploading(true);
+        try {
+            await axios.post(`${API_URL}/api/cloud/import`, { key });
+            alert('✅ Project imported successfully');
+        } catch (err: any) {
+            alert('Import failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const formatSize = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const filteredBackups = backups.filter(b => {
+        if (filter === 'uploads' && !b.key.startsWith('uploads/')) return false;
+        if (filter === 'backups' && !b.key.startsWith('backups/')) return false;
+        return b.key.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     return (
         <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
