@@ -68,6 +68,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [panelMinimized, setPanelMinimized] = useState(false);
     const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
     const [showResumeBar, setShowResumeBar] = useState(true);
+    const [currentPath, setCurrentPath] = useState<string>(''); // For folder navigation
 
     // Initialize Socket
     useEffect(() => {
@@ -322,11 +323,78 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     const storagePercent = (storageInfo.used / storageInfo.total) * 100;
 
-    const filteredBackups = backups.filter(b => {
-        if (filter === 'uploads' && !b.key.startsWith('uploads/')) return false;
-        if (filter === 'backups' && !b.key.startsWith('backups/')) return false;
-        return b.key.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+    // Build virtual folder structure from flat S3 keys
+    const getItemsAtPath = () => {
+        // First filter by sidebar filter
+        let filtered = backups.filter(b => {
+            if (filter === 'uploads' && !b.key.startsWith('uploads/')) return false;
+            if (filter === 'backups' && !b.key.startsWith('backups/')) return false;
+            if (searchTerm && !b.key.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+            return true;
+        });
+
+        // If searching, show flat results
+        if (searchTerm) {
+            return filtered.map(b => ({ type: 'file' as const, key: b.key, name: b.key.split('/').pop() || b.key, size: b.size, lastModified: b.lastModified }));
+        }
+
+        // Build folder/file structure for current path
+        const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number }[] = [];
+        const seenFolders = new Set<string>();
+
+        for (const backup of filtered) {
+            // Check if this item is within current path
+            if (!backup.key.startsWith(currentPath)) continue;
+
+            // Get the part after current path
+            const relativePath = backup.key.slice(currentPath.length);
+            const parts = relativePath.split('/').filter(p => p.length > 0);
+
+            if (parts.length === 0) continue;
+
+            if (parts.length === 1) {
+                // Direct file at this level
+                items.push({ type: 'file', key: backup.key, name: parts[0], size: backup.size, lastModified: backup.lastModified });
+            } else {
+                // This is inside a subfolder
+                const folderName = parts[0];
+                const folderKey = currentPath + folderName + '/';
+                if (!seenFolders.has(folderKey)) {
+                    seenFolders.add(folderKey);
+                    // Count children in this folder
+                    const childCount = filtered.filter(b => b.key.startsWith(folderKey)).length;
+                    items.push({ type: 'folder', key: folderKey, name: folderName, childCount });
+                }
+            }
+        }
+
+        // Sort: folders first, then files, alphabetically
+        return items.sort((a, b) => {
+            if (a.type === 'folder' && b.type === 'file') return -1;
+            if (a.type === 'file' && b.type === 'folder') return 1;
+            return a.name.localeCompare(b.name);
+        });
+    };
+
+    const currentItems = getItemsAtPath();
+
+    // Breadcrumb parts
+    const breadcrumbParts = currentPath.split('/').filter(p => p.length > 0);
+
+    const navigateToFolder = (folderKey: string) => {
+        setCurrentPath(folderKey);
+    };
+
+    const navigateUp = () => {
+        const parts = currentPath.split('/').filter(p => p.length > 0);
+        parts.pop();
+        setCurrentPath(parts.length > 0 ? parts.join('/') + '/' : '');
+    };
+
+    const navigateToBreadcrumb = (index: number) => {
+        const parts = breadcrumbParts.slice(0, index + 1);
+        setCurrentPath(parts.join('/') + '/');
+    };
 
     return (
         <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
@@ -565,28 +633,72 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                             </div>
                         )}
 
+                        {/* Breadcrumbs */}
+                        {currentPath && (
+                            <div className="px-6 py-3 bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 flex items-center gap-2 text-sm">
+                                <button onClick={() => setCurrentPath('')} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                    🏠 Root
+                                </button>
+                                {breadcrumbParts.map((part, i) => (
+                                    <span key={i} className="flex items-center gap-2">
+                                        <span className="text-gray-400">/</span>
+                                        <button
+                                            onClick={() => navigateToBreadcrumb(i)}
+                                            className={`${i === breadcrumbParts.length - 1 ? 'text-gray-900 dark:text-white font-semibold' : 'text-blue-600 dark:text-blue-400 hover:underline'}`}
+                                        >
+                                            {part}
+                                        </button>
+                                    </span>
+                                ))}
+                                {currentPath && (
+                                    <button onClick={navigateUp} className="ml-auto px-3 py-1 bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs hover:bg-gray-300 dark:hover:bg-slate-600 flex items-center gap-1">
+                                        ⬅️ Back
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         <div className="flex-1 overflow-auto p-6">
-                            {filteredBackups.length === 0 ? (
+                            {currentItems.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
                                     <Cloud className="w-24 h-24 mb-6 opacity-20" />
-                                    <h3 className="text-xl font-semibold mb-2">Drive is empty</h3>
-                                    <p className="text-sm">Drag and drop files or use "New Upload"</p>
+                                    <h3 className="text-xl font-semibold mb-2">{currentPath ? 'Folder is empty' : 'Drive is empty'}</h3>
+                                    <p className="text-sm">{currentPath ? 'No files in this folder' : 'Drag and drop files or use "New Upload"'}</p>
+                                    {currentPath && (
+                                        <button onClick={navigateUp} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                            ⬅️ Go Back
+                                        </button>
+                                    )}
                                 </div>
                             ) : viewMode === 'grid' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                    {filteredBackups.map(item => (
-                                        <div key={item.key} className="group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative">
-                                            <div className="aspect-square bg-gray-50 dark:bg-slate-900 rounded-lg mb-3 flex items-center justify-center text-gray-300 dark:text-slate-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 transition-colors">
-                                                {item.key.endsWith('.zip') ? <FileArchive className="w-12 h-12" /> : <FileIcon className="w-12 h-12" />}
-                                            </div>
-                                            <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.key}>{item.key.split('/').pop()}</h4>
-                                            <p className="text-xs text-gray-500 mb-4">{formatSize(item.size)}</p>
-                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4 bg-white dark:bg-slate-800 shadow-lg p-1 rounded-lg border border-gray-100 dark:border-slate-700">
-                                                {item.key.endsWith('.zip') && (
-                                                    <button onClick={() => handleImportToWorkspace(item.key)} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 rounded" title="Import"><ArrowUpFromLine className="w-4 h-4" /></button>
+                                    {currentItems.map(item => (
+                                        <div
+                                            key={item.key}
+                                            className={`group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative ${item.type === 'folder' ? 'cursor-pointer' : ''}`}
+                                            onClick={() => item.type === 'folder' && navigateToFolder(item.key)}
+                                        >
+                                            <div className={`aspect-square bg-gray-50 dark:bg-slate-900 rounded-lg mb-3 flex items-center justify-center ${item.type === 'folder' ? 'text-amber-500' : 'text-gray-300 dark:text-slate-600'} group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 transition-colors`}>
+                                                {item.type === 'folder' ? (
+                                                    <FolderIcon className="w-12 h-12" />
+                                                ) : item.name.endsWith('.zip') ? (
+                                                    <FileArchive className="w-12 h-12" />
+                                                ) : (
+                                                    <FileIcon className="w-12 h-12" />
                                                 )}
-                                                <button onClick={() => handleDelete(item.key)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                             </div>
+                                            <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.name}>{item.name}</h4>
+                                            <p className="text-xs text-gray-500">
+                                                {item.type === 'folder' ? `${item.childCount} items` : formatSize(item.size || 0)}
+                                            </p>
+                                            {item.type === 'file' && (
+                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4 bg-white dark:bg-slate-800 shadow-lg p-1 rounded-lg border border-gray-100 dark:border-slate-700">
+                                                    {item.name.endsWith('.zip') && (
+                                                        <button onClick={(e) => { e.stopPropagation(); handleImportToWorkspace(item.key); }} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 rounded" title="Import"><ArrowUpFromLine className="w-4 h-4" /></button>
+                                                    )}
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.key); }} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -595,25 +707,46 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                     <thead className="text-xs uppercase bg-gray-50 dark:bg-slate-900/50">
                                         <tr>
                                             <th className="px-6 py-3">Name</th>
-                                            <th className="px-6 py-3">Size</th>
+                                            <th className="px-6 py-3">Size / Items</th>
                                             <th className="px-6 py-3">Modified</th>
                                             <th className="px-6 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-                                        {filteredBackups.map(item => (
-                                            <tr key={item.key} className="bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800/50 group">
+                                        {currentItems.map(item => (
+                                            <tr
+                                                key={item.key}
+                                                className={`bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800/50 group ${item.type === 'folder' ? 'cursor-pointer' : ''}`}
+                                                onClick={() => item.type === 'folder' && navigateToFolder(item.key)}
+                                            >
                                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white flex items-center gap-3">
-                                                    {item.key.endsWith('.zip') ? <FileArchive className="w-4 h-4 text-orange-500" /> : <FileIcon className="w-4 h-4 text-blue-500" />}
-                                                    {item.key.split('/').pop()}
+                                                    {item.type === 'folder' ? (
+                                                        <FolderIcon className="w-4 h-4 text-amber-500" />
+                                                    ) : item.name.endsWith('.zip') ? (
+                                                        <FileArchive className="w-4 h-4 text-orange-500" />
+                                                    ) : (
+                                                        <FileIcon className="w-4 h-4 text-blue-500" />
+                                                    )}
+                                                    {item.name}
                                                 </td>
-                                                <td className="px-6 py-4">{formatSize(item.size)}</td>
-                                                <td className="px-6 py-4">{new Date(item.lastModified).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4">
+                                                    {item.type === 'folder' ? `${item.childCount} items` : formatSize(item.size || 0)}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {item.type === 'file' && item.lastModified ? new Date(item.lastModified).toLocaleDateString() : '-'}
+                                                </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
-                                                        {item.key.endsWith('.zip') && <button onClick={() => handleImportToWorkspace(item.key)} className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 rounded">Import</button>}
-                                                        <button onClick={() => handleDelete(item.key)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 rounded">Delete</button>
-                                                    </div>
+                                                    {item.type === 'file' && (
+                                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
+                                                            {item.name.endsWith('.zip') && (
+                                                                <button onClick={(e) => { e.stopPropagation(); handleImportToWorkspace(item.key); }} className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 rounded">Import</button>
+                                                            )}
+                                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(item.key); }} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 rounded">Delete</button>
+                                                        </div>
+                                                    )}
+                                                    {item.type === 'folder' && (
+                                                        <span className="text-gray-400 text-xs">Click to open →</span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

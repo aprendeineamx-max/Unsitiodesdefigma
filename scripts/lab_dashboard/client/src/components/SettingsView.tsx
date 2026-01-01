@@ -40,7 +40,22 @@ export function SettingsView({ stats, selectedVersion }: SettingsViewProps) {
     };
 
     return (
-        <div className="h-full overflow-y-auto p-6 space-y-8">
+        <div className="h-full overflow-y-auto p-6 space-y-8 relative">
+            {/* Fullscreen Purge Overlay */}
+            {purging && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-md">
+                        <Loader2 className="w-16 h-16 text-red-500 animate-spin" />
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Purging Storage...</h2>
+                        <p className="text-gray-600 dark:text-gray-400 text-center">
+                            Deleting all files from Object Storage. This may take a few minutes.
+                            <br />
+                            <strong>Do not close this page.</strong>
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
                     <SettingsIcon className="w-6 h-6 text-gray-500" />
