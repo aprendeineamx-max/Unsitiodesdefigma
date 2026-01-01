@@ -37,16 +37,19 @@ const limitConcurrency = (concurrency) => {
 };
 
 class BackupEngine extends EventEmitter {
-    constructor(s3Client, bucketName, dependencies) {
+    constructor(s3Client, bucketName, dependencies, jobId) {
         super();
         this.s3 = s3Client;
         this.bucket = bucketName;
         this.deps = dependencies;
+        this.jobId = jobId;
         this.limit = limitConcurrency(10); // 10 Concurrent uploads
         this.stopRequested = false;
+        this.uploadedKeys = []; // Track for Undo
 
         // Stats
         this.stats = {
+            jobId: this.jobId,
             filesScanned: 0,
             filesUploaded: 0,
             bytesUploaded: 0,
@@ -59,10 +62,35 @@ class BackupEngine extends EventEmitter {
         this.stopRequested = true;
     }
 
+    // New: Undo functionality
+    async cleanup() {
+        if (this.uploadedKeys.length === 0) return;
+
+        console.log(`[BackupEngine] Cleaning up ${this.uploadedKeys.length} files for job ${this.jobId}...`);
+
+        // S3 deleteObjects can handle up to 1000 keys
+        const chunks = [];
+        for (let i = 0; i < this.uploadedKeys.length; i += 1000) {
+            chunks.push(this.uploadedKeys.slice(i, i + 1000));
+        }
+
+        for (const chunk of chunks) {
+            const params = {
+                Bucket: this.bucket,
+                Delete: {
+                    Objects: chunk.map(key => ({ Key: key }))
+                }
+            };
+            await this.s3.deleteObjects(params).promise();
+        }
+        console.log(`[BackupEngine] Cleanup complete for job ${this.jobId}`);
+    }
+
     async startBackup(sourceRoot, targetPrefix) {
-        console.log(`[BackupEngine] Starting recursive backup: ${sourceRoot} -> ${this.bucket}/${targetPrefix}`);
+        console.log(`[BackupEngine ${this.jobId}] Starting recursive backup: ${sourceRoot} -> ${this.bucket}/${targetPrefix}`);
         this.stopRequested = false;
-        this.stats = { filesScanned: 0, filesUploaded: 0, bytesUploaded: 0, errors: 0, currentFile: '' };
+        // Reset stats but keep jobId
+        this.stats = { ...this.stats, filesScanned: 0, filesUploaded: 0, bytesUploaded: 0, errors: 0, currentFile: '' };
 
         try {
             await this.processDirectory(sourceRoot, targetPrefix);
@@ -129,6 +157,7 @@ class BackupEngine extends EventEmitter {
 
             await this.s3.upload(uploadParams).promise();
 
+            this.uploadedKeys.push(s3Key); // Track success
             this.stats.filesUploaded++;
             this.stats.bytesUploaded += stats.size;
 

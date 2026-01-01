@@ -433,51 +433,107 @@ module.exports = (dependencies) => {
         }
     });
 
+    const { v4: uuidv4 } = require('uuid');
+    const activeJobs = new Map(); // Store active BackupEngine instances
+
     // POST /mirror - Start Full Drive/Recursive Backup
-    // Uses BackupEngine to walk VSS or Standard path and mirror to S3
     router.post('/mirror', async (req, res) => {
         const { sourcePath, snapshotMode } = req.body;
 
         if (!sourcePath) return res.status(400).json({ error: 'Source path required' });
 
-        // Logic:
-        // If snapshotMode is true, sourcePath is the SNAPSHOT root (e.g., \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1)
-        // We want to upload it to S3 under backups/<HOSTNAME>/C_DRIVE/
-
         const hostname = os.hostname();
-        const driveLetter = 'C'; // Assuming C for now, or extract from request
-        const targetPrefix = `backups/${hostname}/${driveLetter}_DRIVE`;
+        // Extract drive letter or folder name for structured path
+        // If snapshot, we assume C drive for now, or we can parse the sourcePath if it looks like a standard path
+        let targetPrefix;
+
+        if (snapshotMode) {
+            targetPrefix = `backups/${hostname}/C_DRIVE`;
+        } else {
+            // Normal folder mirror: Keep structure relative to parent? Or just folder name?
+            // User wants structure. If selecting C:\Users\Admin, user probably expects backups/HOSTNAME/Users/Admin
+            // Let's try to preserve path relative to drive root
+            const match = sourcePath.match(/^([a-zA-Z]:)(.*)/);
+            if (match) {
+                const drive = match[1].replace(':', '');
+                const rest = match[2]; // \Users\Admin...
+                targetPrefix = `backups/${hostname}/${drive}_DRIVE${rest}`.replace(/\\/g, '/');
+            } else {
+                // Fallback
+                const folderName = path.basename(sourcePath);
+                targetPrefix = `backups/${hostname}/${folderName}`;
+            }
+        }
+
+        // Remove trailing slash from prefix if present
+        if (targetPrefix.endsWith('/')) targetPrefix = targetPrefix.slice(0, -1);
+
+        const jobId = uuidv4();
 
         try {
-            dependencies.broadcastLog('system', `🚀 Starting Full Backup Mirror... Target: ${targetPrefix}`, 'info');
+            dependencies.broadcastLog('system', `🚀 Starting Mirror Job [${jobId}]... Target: ${targetPrefix}`, 'info');
 
-            const engine = new BackupEngine(s3, BUCKET_NAME, dependencies);
+            const engine = new BackupEngine(s3, BUCKET_NAME, dependencies, jobId);
+            activeJobs.set(jobId, engine);
 
             // Hook events to Socket
             engine.on('progress', (stats) => {
+                // frontend expects { jobId, ...stats }
                 dependencies.io.emit('backup:progress', stats);
             });
 
             engine.on('complete', (stats) => {
-                dependencies.broadcastLog('system', `✅ Mirror Complete! Uploaded ${stats.filesUploaded} files.`, 'success');
+                dependencies.broadcastLog('system', `✅ Job [${jobId.slice(0, 8)}] Complete! ${stats.filesUploaded} files.`, 'success');
                 dependencies.io.emit('backup:complete', stats);
+                activeJobs.delete(jobId);
             });
 
             engine.on('error', (err) => {
-                dependencies.broadcastLog('system', `❌ Mirror Error: ${err.message}`, 'error');
+                dependencies.broadcastLog('system', `❌ Job [${jobId.slice(0, 8)}] Error: ${err.message}`, 'error');
+                dependencies.io.emit('backup:error', { jobId, error: err.message });
+                activeJobs.delete(jobId);
             });
 
-            // Start async (don't wait for HTTP response)
+            // Start async
             engine.startBackup(sourcePath, targetPrefix);
 
             res.json({
                 success: true,
+                jobId: jobId,
                 message: 'Backup started in background',
                 target: targetPrefix
             });
 
         } catch (err) {
             console.error('Mirror start error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // POST /job/cancel - Stop and optionally cleanup
+    router.post('/job/cancel', async (req, res) => {
+        const { jobId, clean } = req.body;
+
+        if (!activeJobs.has(jobId)) {
+            return res.status(404).json({ error: 'Job not found or already finished' });
+        }
+
+        const engine = activeJobs.get(jobId);
+
+        try {
+            engine.stop();
+            dependencies.broadcastLog('system', `🛑 Stopping Job [${jobId.slice(0, 8)}]...`, 'warn');
+
+            if (clean) {
+                dependencies.broadcastLog('system', `🧹 Cleaning up uploaded files for Job [${jobId.slice(0, 8)}]...`, 'warn');
+                await engine.cleanup();
+            }
+
+            activeJobs.delete(jobId);
+            dependencies.io.emit('backup:canceled', { jobId });
+
+            res.json({ success: true, cleaned: !!clean });
+        } catch (err) {
             res.status(500).json({ error: err.message });
         }
     });
