@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  app_frontend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: lab_dashboard_app
+    restart: always
+    environment:
+      - PORT=3000
+      - VULTR_ACCESS_KEY=${VULTR_ACCESS_KEY}
+      - VULTR_SECRET_KEY=${VULTR_SECRET_KEY}
+      - VULTR_ENDPOINT=${VULTR_ENDPOINT}
+      - VULTR_BUCKET_NAME=${VULTR_BUCKET_NAME}
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    volumes:
+      # Map host directory for persistence (optional, but good for logs/cache)
+      - ./server/logs:/app/logs
+      # Mount point mapping (optional, but lets host see the mount too if propagation is set)
+      - /mnt/cloud_shared:/mnt/cloud:rshared
+
+    # CRITICAL FOR RCLONE MOUNT
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    # Nginx Proxy for Frontend Static Files?
+    # Actually, current setup suggests backend serves frontend or nginx handles it separaterly.
+    # Assuming this container runs the Node server which serves local API.
+    # User's setup likely has Nginx in front.

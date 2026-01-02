@@ -20,19 +20,28 @@ class MountManager {
         const { LABS_DIR } = dependencies;
 
         // Setup Paths
-        this.rcloneBin = path.join(__dirname, '../bin/rclone.exe');
-        this.mountPoint = path.join(__dirname, '../mnt/cloud');
+        this.rcloneBin = process.platform === 'win32'
+            ? path.join(__dirname, '../bin/rclone.exe')
+            : 'rclone'; // Use system binary on Linux/Docker
+
+        this.mountPoint = process.platform === 'win32'
+            ? path.join(__dirname, '../mnt/cloud')
+            : '/mnt/cloud'; // Standard mount point for Docker/Linux
+
         this.configPath = path.join(__dirname, '../rclone.conf');
 
         // Ensure directories exist
-        fs.ensureDirSync(path.dirname(this.rcloneBin));
+        if (process.platform === 'win32') {
+            fs.ensureDirSync(path.dirname(this.rcloneBin));
+        }
         fs.ensureDirSync(this.mountPoint);
 
         this.log('Initialized MountManager');
+        this.log(`Platform: ${process.platform}`);
         this.log(`Bin: ${this.rcloneBin}`);
         this.log(`Mount: ${this.mountPoint}`);
 
-        if (!fs.existsSync(this.rcloneBin)) {
+        if (process.platform === 'win32' && !fs.existsSync(this.rcloneBin)) {
             this.log('ERROR: rclone.exe not found in server/bin/', 'error');
             return false;
         }

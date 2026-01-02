@@ -97,8 +97,8 @@ export const SystemOps: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <button
                         onClick={toggleNative}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${nativeEnabled
-                                ? 'bg-green-900/30 text-green-400 border border-green-800 hover:bg-green-900/50'
-                                : 'bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50'
+                            ? 'bg-green-900/30 text-green-400 border border-green-800 hover:bg-green-900/50'
+                            : 'bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50'
                             }`}
                         title={nativeEnabled ? "Using Rclone Native Mount" : "Using Legacy S3 API"}
                     >
@@ -117,8 +117,42 @@ export const SystemOps: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 </div>
             </div>
 
+            {/* Build Info Panel */}
+            <div className="bg-slate-800/50 p-3 border-b border-slate-700">
+                <div className="bg-slate-900 border border-slate-700 rounded p-2 text-[10px] space-y-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-slate-500 uppercase tracking-widest font-bold">Build Information</span>
+                        <div className="flex gap-1">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                            <span className="text-green-400 font-bold">LIVE</span>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-[60px_1fr] gap-x-2 gap-y-0.5 text-slate-300">
+                        <span className="text-slate-500">VERSION</span>
+                        <span className="font-mono text-blue-400">v11.2.0 (Stable)</span>
+
+                        <span className="text-slate-500">DATE</span>
+                        <span className="font-mono text-purple-300">
+                            {new Date().toLocaleDateString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                        </span>
+
+                        <span className="text-slate-500">COMMIT</span>
+                        <span className="font-mono text-amber-400 flex items-center gap-1">
+                            31e377b7
+                            <span className="text-slate-600 px-1 bg-slate-800 rounded text-[9px]">LATEST</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             {/* Logs Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-1 bg-black/80 font-mono">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-1 bg-black/50 font-mono scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                 {logs.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
                         <Activity className="w-8 h-8 opacity-20" />
@@ -131,13 +165,13 @@ export const SystemOps: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             {log.timestamp.split('T')[1].split('.')[0]}
                         </span>
                         <div className={`flex-1 ${log.type === 'error' ? 'text-red-400' :
-                                log.type === 'warn' ? 'text-amber-400' :
-                                    log.type === 'success' ? 'text-green-400' :
-                                        'text-slate-300'
+                            log.type === 'warn' ? 'text-amber-400' :
+                                log.type === 'success' ? 'text-green-400' :
+                                    'text-slate-300'
                             }`}>
                             <span className={`font-bold mr-2 px-1 rounded text-[10px] uppercase tracking-wider ${log.service === 'rclone' ? 'bg-blue-900/30 text-blue-300' :
-                                    log.service === 'ui' ? 'bg-purple-900/30 text-purple-300' :
-                                        'bg-slate-800 text-slate-400'
+                                log.service === 'ui' ? 'bg-purple-900/30 text-purple-300' :
+                                    'bg-slate-800 text-slate-400'
                                 }`}>
                                 {log.service}
                             </span>
