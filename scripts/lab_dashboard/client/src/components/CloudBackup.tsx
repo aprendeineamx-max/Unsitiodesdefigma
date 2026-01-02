@@ -245,15 +245,82 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     // --- Upload Handlers ---
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
+        if (acceptedFiles.length === 0) return;
+
         setUploading(true);
-        for (const file of acceptedFiles) {
+        const batchId = `local-${Date.now()}`;
+        const totalFiles = acceptedFiles.length;
+
+        // Create virtual job for UI feedback
+        setActiveJobs(prev => [...prev, {
+            jobId: batchId,
+            target: totalFiles > 1 ? `Folder Upload (${totalFiles} files)` : acceptedFiles[0].name,
+            filesUploaded: 0,
+            bytesUploaded: 0,
+            currentFile: 'Starting...',
+            status: 'running'
+        }]);
+
+        let completed = 0;
+        let errors = 0;
+
+        // Concurrency Limit (Prevents browser freeze)
+        const CONCURRENCY = 5;
+        const queue = [...acceptedFiles];
+        const workers = [];
+
+        const processFile = async (file: File) => {
             const formData = new FormData();
+            // Important: Append text fields FIRST so multer sees them before file stream
+            // 'webkitRelativePath' preserves folder structure
+            const relPath = (file as any).webkitRelativePath;
+            if (relPath) {
+                formData.append('relativePath', relPath);
+            }
+            formData.append('batchId', batchId);
             formData.append('file', file);
-            try { await axios.post('/api/cloud/upload', formData); }
-            catch (err: any) { console.error(`Failed to upload ${file.name}`, err); alert(`Failed: ${file.name}`); }
-        }
+
+            try {
+                await axios.post('/api/cloud/upload', formData);
+                completed++;
+
+                // Update Job Progress (throttled slightly by React)
+                setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
+                    ...j,
+                    filesUploaded: completed,
+                    currentFile: file.name
+                } : j));
+
+            } catch (err) {
+                console.error(`Failed ${file.name}`, err);
+                errors++;
+            }
+        };
+
+        const next = async () => {
+            while (queue.length > 0) {
+                const file = queue.shift();
+                if (file) await processFile(file);
+            }
+        };
+
+        // Start concurrent workers
+        for (let i = 0; i < CONCURRENCY; i++) workers.push(next());
+        await Promise.all(workers);
+
         setUploading(false);
         loadTreeData(currentPath);
+
+        // Mark job complete in UI
+        setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
+
+        // Remove job after delay
+        setTimeout(() => {
+            setActiveJobs(prev => prev.filter(j => j.jobId !== batchId));
+        }, 5000);
+
+        if (errors > 0) alert(`Upload completed with ${errors} errors.`);
+
     }, [currentPath]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });

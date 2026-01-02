@@ -128,7 +128,17 @@ module.exports = (dependencies) => {
     router.post('/upload', dependencies.multer().single('file'), async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         try {
-            const s3Key = `lab-backups/uploads/${Date.now()}_${req.file.originalname}`;
+            let s3Key;
+            // Normalize path from client (Folder Upload support)
+            if (req.body.relativePath) {
+                // Basic sanitization
+                const safePath = req.body.relativePath.replace(/\.\./g, '').replace(/^\//, '');
+                s3Key = `lab-backups/uploads/${safePath}`;
+            } else {
+                // Fallback for single file
+                s3Key = `lab-backups/uploads/${Date.now()}_${req.file.originalname}`;
+            }
+
             broadcastLog('system', `☁️ Uploading ${req.file.originalname}...`, 'info');
 
             const result = await S3Service.uploadBuffer(s3Key, req.file.buffer, req.file.mimetype, {
@@ -136,7 +146,11 @@ module.exports = (dependencies) => {
                 uploadDate: new Date().toISOString()
             });
 
-            broadcastLog('system', `✅ Upload complete: ${req.file.originalname}`, 'success');
+            // Don't spam success logs for bulk uploads
+            if (!req.body.batchId) {
+                broadcastLog('system', `✅ Upload complete: ${req.file.originalname}`, 'success');
+            }
+
             res.json({ success: true, key: s3Key, url: result.Location, size: req.file.size });
 
             // Refresh cache implicitly by just logging (or we could trigger refresh)
