@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  lab-dashboard:
+    build: .
+    ports:
+      - "3001:3001" # Server API
+      - "5175:5175" # Client UI
+    environment:
+      - VULTR_ACCESS_KEY=${VULTR_ACCESS_KEY}
+      - VULTR_SECRET_KEY=${VULTR_SECRET_KEY}
+      - VULTR_BUCKET_NAME=${VULTR_BUCKET_NAME:-lab-backups}
+      - VULTR_ENDPOINT=${VULTR_ENDPOINT:-ewr1.vultrobjects.com}
+      - NODE_ENV=production
+    volumes:
+      - ./scripts/lab_dashboard/server/data:/app/server/data
+    restart: unless-stopped

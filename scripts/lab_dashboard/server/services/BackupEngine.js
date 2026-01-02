@@ -2,14 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
 
-// Simple concurrency limiter emulation since we can't easily npm install p-limit right now without risk
-const limitConcurrency = (concurrency) => {
+// Enhanced concurrency limiter with cancellation support
+const createConcurrencyLimiter = (concurrency, engine) => {
     const queue = [];
     let activeCount = 0;
 
     const next = () => {
         activeCount--;
-        if (queue.length > 0) {
+        // Skip queued tasks if stop was requested
+        while (queue.length > 0 && engine.stopRequested) {
+            const { resolve } = queue.shift();
+            resolve({ skipped: true });
+        }
+        if (queue.length > 0 && !engine.stopRequested) {
             const { task, resolve, reject } = queue.shift();
             run(task, resolve, reject);
         }
@@ -18,16 +23,34 @@ const limitConcurrency = (concurrency) => {
     const run = async (task, resolve, reject) => {
         activeCount++;
         try {
+            // Check stop before running
+            if (engine.stopRequested) {
+                resolve({ skipped: true });
+                activeCount--;
+                next();
+                return;
+            }
             const result = await task();
             resolve(result);
         } catch (err) {
             reject(err);
         } finally {
-            next();
+            if (!engine.stopRequested) next();
+            else {
+                activeCount--;
+                // Drain remaining queue on stop
+                while (queue.length > 0) {
+                    const { resolve } = queue.shift();
+                    resolve({ skipped: true });
+                }
+            }
         }
     };
 
     return (task) => new Promise((resolve, reject) => {
+        if (engine.stopRequested) {
+            return resolve({ skipped: true });
+        }
         if (activeCount < concurrency) {
             run(task, resolve, reject);
         } else {
@@ -43,8 +66,9 @@ class BackupEngine extends EventEmitter {
         this.bucket = bucketName;
         this.deps = dependencies;
         this.jobId = jobId;
-        this.limit = limitConcurrency(10); // 10 Concurrent uploads
         this.stopRequested = false;
+        this.activeUploads = new Map(); // Track active S3 uploads for abort
+        this.limit = createConcurrencyLimiter(20, this); // 20 Concurrent uploads (increased from 10)
         this.uploadedKeys = [...alreadyUploadedKeys]; // Start with already uploaded for resume
         this.alreadyUploadedSet = new Set(alreadyUploadedKeys); // For fast lookup
         this.sourcePath = '';
@@ -62,7 +86,19 @@ class BackupEngine extends EventEmitter {
     }
 
     stop() {
+        console.log(`[BackupEngine ${this.jobId}] Stop requested! Aborting ${this.activeUploads.size} active uploads...`);
         this.stopRequested = true;
+
+        // Abort all active S3 uploads
+        for (const [key, upload] of this.activeUploads.entries()) {
+            try {
+                upload.abort();
+                console.log(`[BackupEngine] Aborted upload: ${key}`);
+            } catch (err) {
+                console.error(`[BackupEngine] Failed to abort ${key}:`, err.message);
+            }
+        }
+        this.activeUploads.clear();
     }
 
     // New: Undo functionality
@@ -166,6 +202,9 @@ class BackupEngine extends EventEmitter {
             this.stats.currentFile = filePath;
             this.emit('progress', this.stats);
 
+            // Check again before starting upload
+            if (this.stopRequested) return;
+
             // Create Stream
             const fileStream = fs.createReadStream(filePath);
 
@@ -179,7 +218,18 @@ class BackupEngine extends EventEmitter {
                 }
             };
 
-            await this.s3.upload(uploadParams).promise();
+            // Use ManagedUpload so we can abort it
+            const managedUpload = this.s3.upload(uploadParams);
+            this.activeUploads.set(s3Key, managedUpload);
+
+            try {
+                await managedUpload.promise();
+            } finally {
+                this.activeUploads.delete(s3Key);
+            }
+
+            // Check if stopped during upload
+            if (this.stopRequested) return;
 
             this.uploadedKeys.push(s3Key); // Track success
             this.stats.filesUploaded++;
