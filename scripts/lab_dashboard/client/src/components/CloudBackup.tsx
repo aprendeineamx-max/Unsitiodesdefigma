@@ -167,11 +167,37 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             }));
         };
 
-        // NEW: Cache ready event - full scan completed in background
+        // NEW: Cache progress event - streaming folder counts
+        const onCacheProgress = (data: { totalLoaded: number; folderCounts: Record<string, number>; isComplete: boolean }) => {
+            console.log(`[CloudBackup] Cache progress: ${data.totalLoaded} files loaded`);
+
+            // Update treeData with new folder counts if we're at root level
+            if (treeData && currentPath === '') {
+                setTreeData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        folders: prev.folders.map(folder => ({
+                            ...folder,
+                            childCount: data.folderCounts[folder.key] || folder.childCount,
+                            isLoading: !data.isComplete,
+                            isPartial: !data.isComplete
+                        })),
+                        cacheStatus: {
+                            ...prev.cacheStatus,
+                            totalFiles: data.totalLoaded,
+                            isLoading: !data.isComplete
+                        }
+                    };
+                });
+            }
+        };
+
+        // Cache ready event - full scan completed in background
         const onCacheReady = (data: { totalFiles: number }) => {
             console.log(`[CloudBackup] Full cache ready: ${data.totalFiles} files`);
             setCacheReady(true);
-            // Reload tree data to update folder loading indicators
+            // Reload tree data to update folder loading indicators with final counts
             loadTreeData(currentPath);
         };
 
@@ -180,6 +206,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         socket.on('backup:error', onError);
         socket.on('backup:canceled', onCanceled);
         socket.on('file:uploaded', onFileUploaded);
+        socket.on('cache:progress', onCacheProgress);
         socket.on('cache:ready', onCacheReady);
 
         return () => {
@@ -188,6 +215,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             socket.off('backup:error', onError);
             socket.off('backup:canceled', onCanceled);
             socket.off('file:uploaded', onFileUploaded);
+            socket.off('cache:progress', onCacheProgress);
             socket.off('cache:ready', onCacheReady);
         };
     }, [socket, currentPath, treeData]);
@@ -446,7 +474,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const getItemsAtPath = () => {
         // If we have treeData from fast endpoint, use it directly
         if (treeData && !searchTerm) {
-            const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number; isLoading?: boolean }[] = [];
+            const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number | null; isLoading?: boolean; isPartial?: boolean }[] = [];
 
             // Add folders with loading indicator
             for (const folder of treeData.folders) {
@@ -459,7 +487,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     key: folder.key,
                     name: folder.name,
                     childCount: (folder as any).childCount, // From server cache
-                    isLoading: folder.isLoading // From server
+                    isLoading: (folder as any).isLoading, // From server
+                    isPartial: (folder as any).isPartial // True if count is still streaming
                 });
             }
 
@@ -500,7 +529,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
 
         // Build folder/file structure for current path
-        const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number; isLoading?: boolean }[] = [];
+        const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number | null; isLoading?: boolean; isPartial?: boolean }[] = [];
         const seenFolders = new Set<string>();
 
         for (const backup of filtered) {
@@ -829,8 +858,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                             className={`group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative ${item.type === 'folder' ? 'cursor-pointer' : ''}`}
                                             onClick={() => item.type === 'folder' && navigateToFolder(item.key)}
                                         >
-                                            {/* Loading indicator for folders still being indexed */}
-                                            {item.type === 'folder' && item.isLoading && (
+                                            {/* Loading indicator only if loading AND no count yet */}
+                                            {item.type === 'folder' && item.isLoading && (item.childCount === null || item.childCount === undefined) && (
                                                 <div
                                                     className="absolute top-2 right-2 z-10 group/loading"
                                                     title="Loading folder contents..."
@@ -851,10 +880,13 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                                 )}
                                             </div>
                                             <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.name}>{item.name}</h4>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs text-gray-500 flex items-center gap-1">
                                                 {item.type === 'folder'
                                                     ? (item.childCount !== null && item.childCount !== undefined
-                                                        ? `${item.childCount.toLocaleString()} items`
+                                                        ? <>
+                                                            {item.childCount.toLocaleString()} items
+                                                            {item.isPartial && <Loader2 className="w-3 h-3 animate-spin text-blue-400 inline ml-1" />}
+                                                        </>
                                                         : (item.isLoading ? 'Loading...' : 'Folder'))
                                                     : formatSize(item.size || 0)}
                                             </p>
@@ -897,11 +929,16 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                                     {item.name}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    {item.type === 'folder'
-                                                        ? (item.childCount !== null && item.childCount !== undefined
-                                                            ? `${item.childCount.toLocaleString()} items`
-                                                            : (item.isLoading ? 'Loading...' : 'Folder'))
-                                                        : formatSize(item.size || 0)}
+                                                    <span className="flex items-center gap-1">
+                                                        {item.type === 'folder'
+                                                            ? (item.childCount !== null && item.childCount !== undefined
+                                                                ? <>
+                                                                    {item.childCount.toLocaleString()} items
+                                                                    {item.isPartial && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
+                                                                </>
+                                                                : (item.isLoading ? 'Loading...' : 'Folder'))
+                                                            : formatSize(item.size || 0)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {item.type === 'file' && item.lastModified ? new Date(item.lastModified).toLocaleDateString() : '-'}

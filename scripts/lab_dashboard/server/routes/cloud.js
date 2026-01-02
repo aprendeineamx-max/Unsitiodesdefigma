@@ -151,6 +151,12 @@ module.exports = (dependencies) => {
     };
     const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
+    // Partial cache for streaming updates
+    let partialCache = {
+        data: [],
+        folderCounts: new Map() // folder key -> current count
+    };
+
     // Start loading in background (non-blocking)
     function startBackgroundLoad() {
         if (filesCache.loading || (filesCache.data && (Date.now() - filesCache.timestamp) < CACHE_TTL_MS)) {
@@ -158,12 +164,16 @@ module.exports = (dependencies) => {
         }
 
         filesCache.loading = true;
-        filesCache.loadPromise = loadAllFilesFromS3()
+        partialCache = { data: [], folderCounts: new Map() }; // Reset partial
+
+        filesCache.loadPromise = loadAllFilesFromS3WithProgress()
             .then(data => {
                 filesCache.data = data;
                 filesCache.timestamp = Date.now();
                 filesCache.loading = false;
                 filesCache.loadPromise = null;
+                partialCache = { data: [], folderCounts: new Map() }; // Clear partial
+
                 // Emit via socket that full cache is ready
                 if (dependencies.io) {
                     dependencies.io.emit('cache:ready', { totalFiles: data.length });
@@ -177,8 +187,8 @@ module.exports = (dependencies) => {
             });
     }
 
-    async function loadAllFilesFromS3() {
-        console.log('[S3Cache] Starting full bucket scan...');
+    async function loadAllFilesFromS3WithProgress() {
+        console.log('[S3Cache] Starting full bucket scan with progress...');
         const startTime = Date.now();
         let allContents = [];
         let continuationToken = null;
@@ -195,13 +205,39 @@ module.exports = (dependencies) => {
             const data = await s3.listObjectsV2(params).promise();
 
             if (data.Contents) {
-                allContents = allContents.concat(data.Contents.map(item => ({
+                const batchItems = data.Contents.map(item => ({
                     key: item.Key,
                     size: item.Size,
                     lastModified: item.LastModified,
                     versionId: item.Key.split('/').length > 1 ? item.Key.split('/')[1] : 'root',
                     etag: item.ETag
-                })));
+                }));
+
+                allContents = allContents.concat(batchItems);
+
+                // Update partial cache and folder counts
+                partialCache.data = allContents;
+
+                // Calculate counts for root-level folders
+                const folderCounts = new Map();
+                for (const file of allContents) {
+                    const firstSlash = file.key.indexOf('/');
+                    if (firstSlash > 0) {
+                        const rootFolder = file.key.substring(0, firstSlash + 1);
+                        folderCounts.set(rootFolder, (folderCounts.get(rootFolder) || 0) + 1);
+                    }
+                }
+                partialCache.folderCounts = folderCounts;
+
+                // Emit progress update via socket
+                if (dependencies.io) {
+                    const folderCountsObj = Object.fromEntries(folderCounts);
+                    dependencies.io.emit('cache:progress', {
+                        totalLoaded: allContents.length,
+                        folderCounts: folderCountsObj,
+                        isComplete: !data.IsTruncated
+                    });
+                }
             }
 
             continuationToken = data.IsTruncated ? data.NextContinuationToken : null;
@@ -212,6 +248,18 @@ module.exports = (dependencies) => {
         console.log(`[S3Cache] Complete! Loaded ${allContents.length} files in ${elapsed}s`);
 
         return allContents;
+    }
+
+    // Helper to get current folder counts (from cache or partial)
+    function getCurrentFolderCount(folderKey) {
+        if (filesCache.data) {
+            // Full cache available
+            return filesCache.data.filter(f => f.key.startsWith(folderKey)).length;
+        } else if (partialCache.data.length > 0) {
+            // Use partial cache
+            return partialCache.data.filter(f => f.key.startsWith(folderKey)).length;
+        }
+        return null;
     }
 
     async function getCachedFiles(forceRefresh = false) {
@@ -269,19 +317,19 @@ module.exports = (dependencies) => {
             const folders = (data.CommonPrefixes || []).map(cp => {
                 const folderKey = cp.Prefix;
                 const folderName = folderKey.replace(prefix, '').replace(/\/$/, '');
-                
-                // Calculate childCount from cache if available
-                let childCount = null;
-                if (filesCache.data) {
-                    childCount = filesCache.data.filter(f => f.key.startsWith(folderKey)).length;
-                }
-                
+
+                // Get childCount from full cache or partial cache
+                let childCount = getCurrentFolderCount(folderKey);
+                const isCacheComplete = !!filesCache.data;
+                const isPartialCount = !isCacheComplete && childCount !== null;
+
                 return {
                     key: folderKey,
                     name: folderName,
                     type: 'folder',
                     childCount: childCount,
-                    isLoading: !filesCache.data // If full cache not ready, folder contents are "loading"
+                    isLoading: filesCache.loading && !isCacheComplete, // Loading if cache is still loading
+                    isPartial: isPartialCount // True if count is from partial cache
                 };
             });
 
@@ -308,7 +356,8 @@ module.exports = (dependencies) => {
                 cacheStatus: {
                     isLoading: filesCache.loading,
                     isReady: !!filesCache.data,
-                    totalFiles: filesCache.data ? filesCache.data.length : null
+                    totalFiles: filesCache.data ? filesCache.data.length : (partialCache.data.length || null),
+                    partialLoaded: partialCache.data.length
                 }
             });
 
