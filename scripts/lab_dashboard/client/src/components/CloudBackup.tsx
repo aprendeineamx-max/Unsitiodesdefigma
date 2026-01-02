@@ -6,7 +6,7 @@ import { SyncManager } from './SyncManager';
 import {
     Cloud, Upload, Download, Trash2, RefreshCw, HardDrive,
     File as FileIcon, Folder as FolderIcon, Clock, Check, AlertCircle, Search, Grid, List,
-    FileArchive, ArrowUpFromLine, Plus, Activity, Square, X
+    FileArchive, ArrowUpFromLine, Plus, Activity, Square, X, Loader2
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 
@@ -42,6 +42,34 @@ interface PendingJob {
     uploadedKeys: string[];
 }
 
+// NEW: Tree-based navigation types
+interface TreeFolder {
+    key: string;
+    name: string;
+    type: 'folder';
+    isLoading: boolean;
+}
+
+interface TreeFile {
+    key: string;
+    name: string;
+    size: number;
+    lastModified: string;
+    type: 'file';
+    etag: string;
+}
+
+interface TreeData {
+    prefix: string;
+    folders: TreeFolder[];
+    files: TreeFile[];
+    cacheStatus: {
+        isLoading: boolean;
+        isReady: boolean;
+        totalFiles: number | null;
+    };
+}
+
 interface CloudBackupProps {
     versionId: string | null;
     versions: any[];
@@ -70,6 +98,11 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [showResumeBar, setShowResumeBar] = useState(true);
     const [currentPath, setCurrentPath] = useState<string>(''); // For folder navigation
 
+    // NEW: Progressive loading states
+    const [treeData, setTreeData] = useState<TreeData | null>(null);
+    const [cacheReady, setCacheReady] = useState(false);
+    const [useTreeMode, setUseTreeMode] = useState(true); // Use fast tree mode by default
+
     // Initialize Socket
     useEffect(() => {
         const newSocket = io(window.location.origin);
@@ -96,7 +129,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             setActiveJobs(prev => prev.map(j => j.jobId === stats.jobId ? { ...j, ...stats, status: 'completed' } : j));
             setTimeout(() => {
                 setActiveJobs(prev => prev.filter(j => j.jobId !== stats.jobId));
-                loadBackups();
+                loadTreeData(currentPath); // Reload current tree level
             }, 5000);
         };
 
@@ -110,18 +143,23 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
         // Real-time file list updates
         const onFileUploaded = (fileInfo: any) => {
-            setBackups(prev => {
-                // Avoid duplicates
-                if (prev.some(b => b.key === fileInfo.key)) return prev;
-                // Add new file at the beginning
-                return [{
-                    key: fileInfo.key,
-                    size: fileInfo.size,
-                    lastModified: fileInfo.lastModified,
-                    versionId: '',
-                    etag: ''
-                }, ...prev];
-            });
+            // Also update tree data if in current path
+            if (treeData && fileInfo.key.startsWith(currentPath)) {
+                const fileName = fileInfo.key.replace(currentPath, '').split('/')[0];
+                if (!fileName.includes('/')) { // It's a file in current level
+                    setTreeData(prev => prev ? {
+                        ...prev,
+                        files: [{
+                            key: fileInfo.key,
+                            name: fileName,
+                            size: fileInfo.size,
+                            lastModified: fileInfo.lastModified,
+                            type: 'file',
+                            etag: ''
+                        }, ...prev.files]
+                    } : prev);
+                }
+            }
             // Update storage info
             setStorageInfo(prev => ({
                 ...prev,
@@ -129,11 +167,20 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             }));
         };
 
+        // NEW: Cache ready event - full scan completed in background
+        const onCacheReady = (data: { totalFiles: number }) => {
+            console.log(`[CloudBackup] Full cache ready: ${data.totalFiles} files`);
+            setCacheReady(true);
+            // Reload tree data to update folder loading indicators
+            loadTreeData(currentPath);
+        };
+
         socket.on('backup:progress', onProgress);
         socket.on('backup:complete', onComplete);
         socket.on('backup:error', onError);
         socket.on('backup:canceled', onCanceled);
         socket.on('file:uploaded', onFileUploaded);
+        socket.on('cache:ready', onCacheReady);
 
         return () => {
             socket.off('backup:progress', onProgress);
@@ -141,14 +188,16 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             socket.off('backup:error', onError);
             socket.off('backup:canceled', onCanceled);
             socket.off('file:uploaded', onFileUploaded);
+            socket.off('cache:ready', onCacheReady);
         };
-    }, [socket]);
+    }, [socket, currentPath, treeData]);
 
+    // Load tree data when path changes
     useEffect(() => {
         checkConnection();
-        loadBackups();
+        loadTreeData(currentPath);
         loadPendingJobs();
-    }, [versionId]);
+    }, [versionId, currentPath]);
 
     const loadPendingJobs = async () => {
         try {
@@ -195,14 +244,84 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         } catch { setConnected(false); }
     };
 
+    // NEW: Fast tree loading - loads only one level at a time using S3 Delimiter
+    const loadTreeData = async (prefix: string = '') => {
+        setLoading(true);
+        try {
+            const res = await axios.get(`/api/cloud/list/tree?prefix=${encodeURIComponent(prefix)}`);
+            setTreeData(res.data);
+            setCacheReady(res.data.cacheStatus?.isReady || false);
+
+            // Calculate storage from files in current view (rough estimate)
+            const totalSize = res.data.files.reduce((acc: number, f: TreeFile) => acc + f.size, 0);
+            setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
+        } catch (err) {
+            console.error('Failed to load tree data', err);
+        }
+        finally { setLoading(false); }
+    };
+
+    // Navigate into a folder
+    const navigateToFolder = (folderKey: string) => {
+        setCurrentPath(folderKey);
+    };
+
+    // Navigate up one level
+    const navigateUp = () => {
+        const parts = currentPath.split('/').filter(Boolean);
+        parts.pop();
+        setCurrentPath(parts.length > 0 ? parts.join('/') + '/' : '');
+    };
+
+    // Get breadcrumb path segments
+    const getBreadcrumbs = () => {
+        if (!currentPath) return [];
+        const parts = currentPath.split('/').filter(Boolean);
+        return parts.map((part, index) => ({
+            name: part,
+            path: parts.slice(0, index + 1).join('/') + '/'
+        }));
+    };
+
+    // OLD: Load all backups (for backward compatibility, unused in tree mode)
     const loadBackups = async () => {
         setLoading(true);
         try {
             const endpoint = versionId ? `/api/cloud/list/${versionId}` : '/api/cloud/list';
-            const res = await axios.get(endpoint);
-            setBackups(res.data);
-            const totalSize = res.data.reduce((acc: number, b: Backup) => acc + b.size, 0);
-            setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
+
+            // For the general list, handle paginated response
+            if (!versionId) {
+                let allFiles: Backup[] = [];
+                let page = 1;
+                let hasMore = true;
+
+                // Load all pages (with high pageSize to minimize requests)
+                while (hasMore) {
+                    const res = await axios.get(`${endpoint}?page=${page}&pageSize=1000`);
+
+                    // Handle new paginated response format
+                    if (res.data.files) {
+                        allFiles = allFiles.concat(res.data.files);
+                        hasMore = res.data.pagination?.hasMore || false;
+                        page++;
+                    } else {
+                        // Fallback for old format (array directly)
+                        allFiles = res.data;
+                        hasMore = false;
+                    }
+                }
+
+                setBackups(allFiles);
+                const totalSize = allFiles.reduce((acc: number, b: Backup) => acc + b.size, 0);
+                setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
+            } else {
+                // For version-specific list, keep old behavior
+                const res = await axios.get(endpoint);
+                const files = res.data.files || res.data; // Handle both formats
+                setBackups(files);
+                const totalSize = files.reduce((acc: number, b: Backup) => acc + b.size, 0);
+                setStorageInfo(prev => ({ ...prev, used: totalSize / (1024 * 1024) }));
+            }
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
@@ -323,9 +442,50 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     const storagePercent = (storageInfo.used / storageInfo.total) * 100;
 
-    // Build virtual folder structure from flat S3 keys
+    // Build virtual folder structure - NOW uses treeData from fast endpoint
     const getItemsAtPath = () => {
-        // First filter by sidebar filter
+        // If we have treeData from fast endpoint, use it directly
+        if (treeData && !searchTerm) {
+            const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number; isLoading?: boolean }[] = [];
+
+            // Add folders with loading indicator
+            for (const folder of treeData.folders) {
+                // Apply filter
+                if (filter === 'uploads' && !folder.key.startsWith('uploads/')) continue;
+                if (filter === 'backups' && !folder.key.startsWith('backups/')) continue;
+
+                items.push({
+                    type: 'folder',
+                    key: folder.key,
+                    name: folder.name,
+                    isLoading: !cacheReady // Show loading indicator if full cache not ready
+                });
+            }
+
+            // Add files
+            for (const file of treeData.files) {
+                // Apply filter
+                if (filter === 'uploads' && !file.key.startsWith('uploads/')) continue;
+                if (filter === 'backups' && !file.key.startsWith('backups/')) continue;
+
+                items.push({
+                    type: 'file',
+                    key: file.key,
+                    name: file.name,
+                    size: file.size,
+                    lastModified: file.lastModified
+                });
+            }
+
+            // Sort: folders first, then files, alphabetically
+            return items.sort((a, b) => {
+                if (a.type === 'folder' && b.type === 'file') return -1;
+                if (a.type === 'file' && b.type === 'folder') return 1;
+                return a.name.localeCompare(b.name);
+            });
+        }
+
+        // FALLBACK: Build from flat backups list (for search or if treeData not available)
         let filtered = backups.filter(b => {
             if (filter === 'uploads' && !b.key.startsWith('uploads/')) return false;
             if (filter === 'backups' && !b.key.startsWith('backups/')) return false;
@@ -339,7 +499,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         }
 
         // Build folder/file structure for current path
-        const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number }[] = [];
+        const items: { type: 'folder' | 'file'; key: string; name: string; size?: number; lastModified?: string; childCount?: number; isLoading?: boolean }[] = [];
         const seenFolders = new Set<string>();
 
         for (const backup of filtered) {
@@ -363,7 +523,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     seenFolders.add(folderKey);
                     // Count children in this folder
                     const childCount = filtered.filter(b => b.key.startsWith(folderKey)).length;
-                    items.push({ type: 'folder', key: folderKey, name: folderName, childCount });
+                    items.push({ type: 'folder', key: folderKey, name: folderName, childCount, isLoading: false });
                 }
             }
         }
@@ -381,16 +541,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     // Breadcrumb parts
     const breadcrumbParts = currentPath.split('/').filter(p => p.length > 0);
 
-    const navigateToFolder = (folderKey: string) => {
-        setCurrentPath(folderKey);
-    };
-
-    const navigateUp = () => {
-        const parts = currentPath.split('/').filter(p => p.length > 0);
-        parts.pop();
-        setCurrentPath(parts.length > 0 ? parts.join('/') + '/' : '');
-    };
-
     const navigateToBreadcrumb = (index: number) => {
         const parts = breadcrumbParts.slice(0, index + 1);
         setCurrentPath(parts.join('/') + '/');
@@ -400,7 +550,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         <div className="flex h-full bg-white dark:bg-slate-900 overflow-hidden relative">
             {showSystemBrowser && (
                 <SystemBrowser
-                    onUpload={(path) => {
+                    onUpload={async (path) => {
                         if (mirrorMode) { handleMirrorSpecificFolder(path); }
                         else { handleSystemUpload(path); }
                         setMirrorMode(false);
@@ -678,6 +828,18 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                             className={`group bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl p-4 transition-all hover:shadow-lg relative ${item.type === 'folder' ? 'cursor-pointer' : ''}`}
                                             onClick={() => item.type === 'folder' && navigateToFolder(item.key)}
                                         >
+                                            {/* Loading indicator for folders still being indexed */}
+                                            {item.type === 'folder' && item.isLoading && (
+                                                <div
+                                                    className="absolute top-2 right-2 z-10 group/loading"
+                                                    title="Loading folder contents..."
+                                                >
+                                                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                                                    <div className="absolute right-0 top-6 hidden group-hover/loading:block bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                                                        Loading contents...
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className={`aspect-square bg-gray-50 dark:bg-slate-900 rounded-lg mb-3 flex items-center justify-center ${item.type === 'folder' ? 'text-amber-500' : 'text-gray-300 dark:text-slate-600'} group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 transition-colors`}>
                                                 {item.type === 'folder' ? (
                                                     <FolderIcon className="w-12 h-12" />
@@ -689,7 +851,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                             </div>
                                             <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.name}>{item.name}</h4>
                                             <p className="text-xs text-gray-500">
-                                                {item.type === 'folder' ? `${item.childCount} items` : formatSize(item.size || 0)}
+                                                {item.type === 'folder' ? (item.isLoading ? 'Indexing...' : `${item.childCount || '?'} items`) : formatSize(item.size || 0)}
                                             </p>
                                             {item.type === 'file' && (
                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4 bg-white dark:bg-slate-800 shadow-lg p-1 rounded-lg border border-gray-100 dark:border-slate-700">

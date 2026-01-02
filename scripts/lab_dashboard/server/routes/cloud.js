@@ -141,25 +141,218 @@ module.exports = (dependencies) => {
         }
     });
 
-    // GET /list
-    router.get('/list', async (req, res) => {
-        try {
+    // ========== CACHE SYSTEM FOR S3 LISTING ==========
+    let filesCache = {
+        data: null,
+        timestamp: 0,
+        loading: false,
+        loadPromise: null,
+        loadedFolders: new Set() // Track which folders have been fully loaded
+    };
+    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+
+    // Start loading in background (non-blocking)
+    function startBackgroundLoad() {
+        if (filesCache.loading || (filesCache.data && (Date.now() - filesCache.timestamp) < CACHE_TTL_MS)) {
+            return; // Already loading or cache is fresh
+        }
+
+        filesCache.loading = true;
+        filesCache.loadPromise = loadAllFilesFromS3()
+            .then(data => {
+                filesCache.data = data;
+                filesCache.timestamp = Date.now();
+                filesCache.loading = false;
+                filesCache.loadPromise = null;
+                // Emit via socket that full cache is ready
+                if (dependencies.io) {
+                    dependencies.io.emit('cache:ready', { totalFiles: data.length });
+                }
+                return data;
+            })
+            .catch(err => {
+                filesCache.loading = false;
+                filesCache.loadPromise = null;
+                console.error('[S3Cache] Background load failed:', err);
+            });
+    }
+
+    async function loadAllFilesFromS3() {
+        console.log('[S3Cache] Starting full bucket scan...');
+        const startTime = Date.now();
+        let allContents = [];
+        let continuationToken = null;
+
+        do {
             const params = {
-                Bucket: BUCKET_NAME
-                // Removed Prefix to allow viewing 'uploads/', 'system-backups/', etc.
+                Bucket: BUCKET_NAME,
+                MaxKeys: 1000 // S3 max per request
+            };
+            if (continuationToken) {
+                params.ContinuationToken = continuationToken;
+            }
+
+            const data = await s3.listObjectsV2(params).promise();
+
+            if (data.Contents) {
+                allContents = allContents.concat(data.Contents.map(item => ({
+                    key: item.Key,
+                    size: item.Size,
+                    lastModified: item.LastModified,
+                    versionId: item.Key.split('/').length > 1 ? item.Key.split('/')[1] : 'root',
+                    etag: item.ETag
+                })));
+            }
+
+            continuationToken = data.IsTruncated ? data.NextContinuationToken : null;
+            console.log(`[S3Cache] Loaded ${allContents.length} files so far...`);
+        } while (continuationToken);
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[S3Cache] Complete! Loaded ${allContents.length} files in ${elapsed}s`);
+
+        return allContents;
+    }
+
+    async function getCachedFiles(forceRefresh = false) {
+        const now = Date.now();
+
+        // Return cached data if valid
+        if (!forceRefresh && filesCache.data && (now - filesCache.timestamp) < CACHE_TTL_MS) {
+            console.log(`[S3Cache] Cache hit! ${filesCache.data.length} files (age: ${((now - filesCache.timestamp) / 1000).toFixed(0)}s)`);
+            return filesCache.data;
+        }
+
+        // If already loading, wait for that load to complete
+        if (filesCache.loading && filesCache.loadPromise) {
+            console.log('[S3Cache] Another request is loading, waiting...');
+            return await filesCache.loadPromise;
+        }
+
+        // Start loading
+        filesCache.loading = true;
+        filesCache.loadPromise = loadAllFilesFromS3()
+            .then(data => {
+                filesCache.data = data;
+                filesCache.timestamp = Date.now();
+                filesCache.loading = false;
+                filesCache.loadPromise = null;
+                return data;
+            })
+            .catch(err => {
+                filesCache.loading = false;
+                filesCache.loadPromise = null;
+                throw err;
+            });
+
+        return await filesCache.loadPromise;
+    }
+
+    // GET /list/tree - FAST: List only one level at a time using S3 Delimiter
+    // This returns folders and files at a specific prefix level INSTANTLY
+    router.get('/list/tree', async (req, res) => {
+        try {
+            const prefix = req.query.prefix || '';
+
+            console.log(`[S3Tree] Listing level: "${prefix || 'ROOT'}"`);
+
+            const params = {
+                Bucket: BUCKET_NAME,
+                Prefix: prefix,
+                Delimiter: '/', // This is the magic - only returns one level
+                MaxKeys: 1000
             };
 
             const data = await s3.listObjectsV2(params).promise();
 
-            const backups = (data.Contents || []).map(item => ({
-                key: item.Key,
-                size: item.Size,
-                lastModified: item.LastModified,
-                versionId: item.Key.split('/').length > 1 ? item.Key.split('/')[1] : 'root',
-                etag: item.ETag
+            // Folders at this level (CommonPrefixes)
+            const folders = (data.CommonPrefixes || []).map(cp => ({
+                key: cp.Prefix,
+                name: cp.Prefix.replace(prefix, '').replace(/\/$/, ''),
+                type: 'folder',
+                isLoading: !filesCache.data // If full cache not ready, folder contents are "loading"
             }));
 
-            res.json(backups);
+            // Files at this level (Contents, excluding the prefix itself)
+            const files = (data.Contents || [])
+                .filter(item => item.Key !== prefix) // Exclude the folder itself
+                .map(item => ({
+                    key: item.Key,
+                    name: item.Key.replace(prefix, ''),
+                    size: item.Size,
+                    lastModified: item.LastModified,
+                    type: 'file',
+                    etag: item.ETag
+                }));
+
+            // Start background full load if not already done
+            startBackgroundLoad();
+
+            res.json({
+                prefix,
+                folders,
+                files,
+                isTruncated: data.IsTruncated,
+                cacheStatus: {
+                    isLoading: filesCache.loading,
+                    isReady: !!filesCache.data,
+                    totalFiles: filesCache.data ? filesCache.data.length : null
+                }
+            });
+
+        } catch (err) {
+            console.error('Tree list error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // GET /cache/status - Check if background cache is ready
+    router.get('/cache/status', (req, res) => {
+        res.json({
+            isLoading: filesCache.loading,
+            isReady: !!filesCache.data,
+            totalFiles: filesCache.data ? filesCache.data.length : 0,
+            age: filesCache.timestamp > 0 ? Math.round((Date.now() - filesCache.timestamp) / 1000) : null,
+            ttl: Math.round(CACHE_TTL_MS / 1000)
+        });
+    });
+
+    // GET /list - Now with cache and full pagination
+    router.get('/list', async (req, res) => {
+        try {
+            const forceRefresh = req.query.refresh === 'true';
+            const page = parseInt(req.query.page) || 1;
+            const pageSize = parseInt(req.query.pageSize) || 100;
+
+            const allFiles = await getCachedFiles(forceRefresh);
+
+            // Optional: filter by prefix
+            let filteredFiles = allFiles;
+            if (req.query.prefix) {
+                filteredFiles = allFiles.filter(f => f.key.startsWith(req.query.prefix));
+            }
+
+            // Pagination for response
+            const totalItems = filteredFiles.length;
+            const totalPages = Math.ceil(totalItems / pageSize);
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const paginatedFiles = filteredFiles.slice(startIndex, endIndex);
+
+            res.json({
+                files: paginatedFiles,
+                pagination: {
+                    page,
+                    pageSize,
+                    totalItems,
+                    totalPages,
+                    hasMore: page < totalPages
+                },
+                cache: {
+                    age: filesCache.timestamp > 0 ? Math.round((Date.now() - filesCache.timestamp) / 1000) : 0,
+                    ttl: Math.round(CACHE_TTL_MS / 1000)
+                }
+            });
 
         } catch (err) {
             console.error('List error:', err);
