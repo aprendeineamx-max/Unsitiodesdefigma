@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # BACKEND SERVICE (API)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend-runner
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - VULTR_Access_KEY=${VULTR_ACCESS_KEY}
+      - VULTR_SECRET_KEY=${VULTR_SECRET_KEY}
+      - VULTR_BUCKET_NAME=${VULTR_BUCKET_NAME}
+      - VULTR_ENDPOINT=${VULTR_ENDPOINT}
+    restart: always
+
+  # FRONTEND SERVICE (Reverse Proxy & Static)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-nginx
+    ports:
+      - "80:80"
+    restart: always
+    depends_on:
+      - backend

@@ -1,26 +1,33 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine
 
+# --- BUILD STAGE (Client) ---
+FROM node:20-alpine AS client-builder
+WORKDIR /app/client
+COPY scripts/lab_dashboard/client/package*.json ./
+RUN npm install --legacy-peer-deps
+COPY scripts/lab_dashboard/client ./
+RUN npm run build
+
+# --- BACKEND (Node.js API) ---
+FROM node:20-alpine AS backend-runner
 WORKDIR /app
-
-# Copy server files
+# Copy only backend files
 COPY scripts/lab_dashboard/server/package*.json ./server/
-RUN cd server && npm install --legacy-peer-deps
+RUN cd server && npm install --legacy-peer-deps --production
 
-# Copy client files  
-COPY scripts/lab_dashboard/client/package*.json ./client/
-RUN cd client && npm install --legacy-peer-deps
-
-# Copy all source code
 COPY scripts/lab_dashboard/server ./server/
-COPY scripts/lab_dashboard/client ./client/
+# We don't copy client files here in prod mode, as Nginx serves them.
+# But server might check for them, so we can mock or ignore.
+# Assuming server in API mode works fine without dist folder.
 
-# Build client for production
-RUN cd client && npm run build
-
-# Expose ports
-EXPOSE 3001 5175
-
-# Start server
 WORKDIR /app/server
-CMD ["npm", "start"]
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+# --- FRONTEND (Nginx) ---
+FROM nginx:alpine AS frontend-nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+# Copy built static files from client-builder stage
+COPY --from=client-builder /app/client/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
