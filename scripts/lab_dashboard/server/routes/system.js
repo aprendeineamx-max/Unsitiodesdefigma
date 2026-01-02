@@ -142,5 +142,32 @@ try {
         }
     });
 
-    return router;
+    // POST /deploy - Trigger Full Production Deployment
+    router.post('/deploy', async (req, res) => {
+        const deployScript = path.resolve(dependencies.PROJECT_ROOT || path.join(__dirname, '../../../'), 'scripts/deploy/full_deploy.js');
+
+        console.log('🚀 Triggering manual deployment from GUI...');
+        const deployProcess = dependencies.spawn('node', [deployScript], {
+            cwd: path.dirname(deployScript),
+            env: { ...process.env, FORCE_COLOR: '1' }
+        });
+
+        res.json({ success: true, message: 'Deployment started' });
+
+        deployProcess.stdout.on('data', (data) => {
+            const line = data.toString();
+            // dependencies.io is Socket.IO instance attached in server.js
+            dependencies.io.emit('deploy-log', line);
+        });
+
+        deployProcess.stderr.on('data', (data) => {
+            const line = data.toString();
+            dependencies.io.emit('deploy-log', `ERR: ${line}`);
+        });
+
+        deployProcess.on('close', (code) => {
+            dependencies.io.emit('deploy-log', `\n✨ Deployment Process Exited with code ${code}`);
+            dependencies.io.emit('deploy-status', { status: code === 0 ? 'success' : 'error' });
+        });
+    });
 };

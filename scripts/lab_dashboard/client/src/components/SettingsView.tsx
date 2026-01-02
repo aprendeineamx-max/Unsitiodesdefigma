@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { ResourceMonitor } from './ResourceMonitor';
-import { Settings as SettingsIcon, Activity, Trash2, AlertTriangle, Shield, Loader2, CheckCircle, Eye, EyeOff, Save, FileText, Key, Server, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Activity, Trash2, AlertTriangle, Shield, Loader2, CheckCircle, Eye, EyeOff, Save, FileText, Key, Server, Database, Rocket, Terminal } from 'lucide-react';
 
 interface SettingsViewProps {
     stats: any;
@@ -13,6 +14,48 @@ export function SettingsView({ stats, selectedVersion }: SettingsViewProps) {
     const [confirmText, setConfirmText] = useState('');
     const [showConfirm, setShowConfirm] = useState(false);
     const [purgeResult, setPurgeResult] = useState<{ success: boolean; count: number } | null>(null);
+
+    // Deployment State
+    const [deploying, setDeploying] = useState(false);
+    const [deployLogs, setDeployLogs] = useState<string[]>([]);
+    const logsEndRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const socket = io(); // Connect to same host
+
+        socket.on('deploy-log', (msg: string) => {
+            setDeployLogs(prev => [...prev, msg]);
+        });
+
+        socket.on('deploy-status', (stat: any) => {
+            if (stat.status === 'success') {
+                setDeployLogs(prev => [...prev, '\n✅ Deployment Successful!']);
+                setDeploying(false);
+            } else {
+                setDeployLogs(prev => [...prev, '\n❌ Deployment Failed.']);
+                setDeploying(false);
+            }
+        });
+
+        return () => { socket.disconnect(); };
+    }, []);
+
+    // Scroll to bottom of logs
+    React.useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [deployLogs]);
+
+    const handleDeploy = async () => {
+        if (!confirm('Are you sure you want to deploy to PRODUCTION? This will overwrite the live server.')) return;
+        setDeploying(true);
+        setDeployLogs(['Initiating Deployment Sequence...']);
+        try {
+            await axios.post('/api/system/deploy'); // Updated route
+        } catch (err: any) {
+            setDeployLogs(prev => [...prev, `❌ Error starting deploy: ${err.message}`]);
+            setDeploying(false);
+        }
+    };
 
     // Vultr State
     const [vultrConfig, setVultrConfig] = useState({
@@ -399,6 +442,48 @@ export function SettingsView({ stats, selectedVersion }: SettingsViewProps) {
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* One-Click Deployment Section */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Rocket className="w-5 h-5 text-purple-600" />
+                            One-Click Production Deployment
+                        </h3>
+
+                        <div className="p-6 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-900/50 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 className="font-bold text-gray-900 dark:text-white">Live Status</h4>
+                                    <p className="text-sm text-gray-500">Deploy current "Hot Reload" state to micuenta.shop</p>
+                                </div>
+                                <button
+                                    onClick={handleDeploy}
+                                    disabled={deploying}
+                                    className={`px-6 py-3 font-bold text-white rounded-lg shadow-lg flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 ${deploying ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'}`}
+                                >
+                                    {deploying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />}
+                                    {deploying ? 'Deploying...' : 'Deploy to PROD 🚀'}
+                                </button>
+                            </div>
+
+                            {/* Terminal Window */}
+                            <div className="bg-slate-950 rounded-lg border border-slate-700 font-mono text-xs md:text-sm p-4 h-64 overflow-y-auto shadow-inner custom-scrollbar">
+                                <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-800">
+                                    <Terminal className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-400 font-semibold">Deployment Console</span>
+                                </div>
+                                <div className="space-y-1">
+                                    {deployLogs.length === 0 && (
+                                        <div className="text-slate-600 italic">Ready to deploy... Logs will appear here.</div>
+                                    )}
+                                    {deployLogs.map((log, i) => (
+                                        <div key={i} className="text-green-400 whitespace-pre-wrap">{log}</div>
+                                    ))}
+                                    <div ref={logsEndRef} />
                                 </div>
                             </div>
                         </div>
