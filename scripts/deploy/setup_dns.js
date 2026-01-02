@@ -9,7 +9,7 @@ const API_KEY = process.env.CF_API_KEY || '3bc055261e648805ddf1f41304a304476e5e9
 // User didn't provide email explicitly for Headers, but provided "Global API Key".
 // Usually Global Key needs Email. Origin CA Key is for certs.
 // Wait, user provided email: dolphin.anty.universal@gmail.com
-const EMAIL = 'dolphin.anty.universal@gmail.com';
+const EMAIL = 'eduardo.ramirez.gob.mx@gmail.com';
 const DOMAIN = 'micuenta.shop';
 const ZONE_ID = ''; // Will search if empty
 
