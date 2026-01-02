@@ -40,9 +40,19 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
     const folderInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log('[CloudSidebar] handleFileChange triggered');
+        console.log('[CloudSidebar] Files selected:', e.target.files?.length || 0);
+
         if (e.target.files && e.target.files.length > 0) {
+            console.log('[CloudSidebar] Passing', e.target.files.length, 'files to onLocalUpload');
             onLocalUpload(Array.from(e.target.files));
+        } else {
+            console.error('[CloudSidebar] No files enumerated from input - check browser permissions');
+            alert('No se pudieron enumerar los archivos. El navegador puede haber bloqueado el acceso a la carpeta.');
         }
+
+        // Reset input so same folder can be selected again
+        e.target.value = '';
     };
 
     return (

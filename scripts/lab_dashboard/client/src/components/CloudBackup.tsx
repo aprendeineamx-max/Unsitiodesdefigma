@@ -264,98 +264,121 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
     // --- Upload Handlers ---
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
-        if (acceptedFiles.length === 0) return;
+        console.log('[CloudBackup] onDrop called with', acceptedFiles?.length || 0, 'files');
+
+        // V7: Validate input
+        if (!acceptedFiles || acceptedFiles.length === 0) {
+            console.error('[CloudBackup] No files received in onDrop');
+            alert('No se recibieron archivos. El navegador puede haber bloqueado el acceso a la carpeta.');
+            return;
+        }
 
         setUploading(true);
         const batchId = `batch-${Date.now()}`;
         const totalFiles = acceptedFiles.length;
 
-        // UI Feedback
+        // V7: Immediate UI Feedback
+        console.log('[CloudBackup] Creating job for', totalFiles, 'files');
         setActiveJobs(prev => [...prev, {
             jobId: batchId,
             target: totalFiles > 1 ? `Batch Upload (${totalFiles} files)` : acceptedFiles[0].name,
             filesUploaded: 0,
             bytesUploaded: 0,
-            currentFile: 'Starting...',
+            currentFile: `Preparando ${totalFiles} archivos...`,
             status: 'running'
         }]);
 
-        let completed = 0;
-        let errors = 0;
-        const BATCH_SIZE = 20; // V4.1: Reduced for stability
+        // V8: Yield to event loop to allow UI to paint "Preparing" status
+        setTimeout(async () => {
 
-        // Create Chunks
-        const chunks: File[][] = [];
-        for (let i = 0; i < acceptedFiles.length; i += BATCH_SIZE) {
-            chunks.push(acceptedFiles.slice(i, i + BATCH_SIZE));
-        }
+            let completed = 0;
+            let errors = 0;
+            const BATCH_SIZE = 10; // V7: Reduced to 10 for stability
 
-        const processChunk = async (chunk: File[]) => {
-            const formData = new FormData();
-            const paths: string[] = [];
+            // Create Chunks
+            const chunks: File[][] = [];
+            for (let i = 0; i < acceptedFiles.length; i += BATCH_SIZE) {
+                chunks.push(acceptedFiles.slice(i, i + BATCH_SIZE));
+            }
+            console.log('[CloudBackup] Created', chunks.length, 'chunks of', BATCH_SIZE, 'files each');
 
-            formData.append('batchId', batchId);
+            const processChunk = async (chunk: File[], chunkIndex: number) => {
+                const formData = new FormData();
+                const paths: string[] = [];
 
-            chunk.forEach(file => {
-                const relPath = (file as any).webkitRelativePath;
-                // If relPath exists but we are at root, it's just folder/file. 
-                // If it's empty (single file drag), use name.
-                paths.push(relPath || file.name);
-                formData.append('files', file);
-            });
+                formData.append('batchId', batchId);
 
-            // Send structural data
-            formData.append('paths', JSON.stringify(paths));
+                chunk.forEach(file => {
+                    const relPath = (file as any).webkitRelativePath;
+                    paths.push(relPath || file.name);
+                    formData.append('files', file);
+                });
 
-            try {
-                const res = await axios.post('/api/cloud/upload/batch', formData);
+                formData.append('paths', JSON.stringify(paths));
 
-                completed += (res.data.uploaded || chunk.length);
-                errors += (res.data.failed || 0);
+                try {
+                    console.log('[CloudBackup] Sending chunk', chunkIndex + 1, 'with', chunk.length, 'files');
+                    const res = await axios.post('/api/cloud/upload/batch', formData, {
+                        timeout: 120000 // V7: 2 minute timeout per batch
+                    });
 
-                // Update UI
+                    completed += (res.data.uploaded || chunk.length);
+                    errors += (res.data.failed || 0);
+
+                    // V7: Update UI with percentage
+                    const percent = Math.round((completed / totalFiles) * 100);
+                    setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
+                        ...j,
+                        filesUploaded: completed,
+                        currentFile: `Subiendo... ${percent}% (${completed}/${totalFiles})`
+                    } : j));
+
+                } catch (err: any) {
+                    console.error('[CloudBackup] Chunk', chunkIndex + 1, 'failed:', err.message);
+                    errors += chunk.length;
+
+                    // V7: Update UI with error count
+                    setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
+                        ...j,
+                        currentFile: `Error en lote ${chunkIndex + 1}. Continuando...`
+                    } : j));
+                }
+            };
+
+            // V7: Concurrency Limit (2 chunks = 20 files parallel net ops)
+            const CONCURRENCY = 2;
+            let chunkIndex = 0;
+            const queue = [...chunks];
+            const workers: Promise<void>[] = [];
+
+            const next = async () => {
+                while (queue.length > 0) {
+                    const chunk = queue.shift();
+                    const currentIndex = chunkIndex++;
+                    if (chunk) await processChunk(chunk, currentIndex);
+                }
+            };
+
+            for (let i = 0; i < CONCURRENCY; i++) workers.push(next());
+            await Promise.all(workers);
+
+            setUploading(false);
+            loadTreeData(currentPath);
+
+            // V4.1: Persist error state - do not auto-clear if errors occurred
+            if (errors > 0) {
                 setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
                     ...j,
-                    filesUploaded: completed,
-                    currentFile: `Uploading batch... (${completed}/${totalFiles})`
+                    status: 'error',
+                    currentFile: `Failed: ${errors} files. Click X to dismiss.`
                 } : j));
-
-            } catch (err) {
-                console.error('Batch Failed', err);
-                errors += chunk.length;
+                alert(`Upload finished with ${errors} errors out of ${totalFiles} files.`);
+            } else {
+                setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
+                setTimeout(() => { setActiveJobs(prev => prev.filter(j => j.jobId !== batchId)); }, 5000);
             }
-        };
 
-        // Concurrency Limit (2 chunks = 40 files parallel net ops)
-        const CONCURRENCY = 2;
-        const queue = [...chunks];
-        const workers: Promise<void>[] = [];
-
-        const next = async () => {
-            while (queue.length > 0) {
-                const chunk = queue.shift();
-                if (chunk) await processChunk(chunk);
-            }
-        };
-
-        for (let i = 0; i < CONCURRENCY; i++) workers.push(next());
-        await Promise.all(workers);
-
-        setUploading(false);
-        loadTreeData(currentPath);
-
-        // V4.1: Persist error state - do not auto-clear if errors occurred
-        if (errors > 0) {
-            setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
-                ...j,
-                status: 'error',
-                currentFile: `Failed: ${errors} files. Click X to dismiss.`
-            } : j));
-            alert(`Upload finished with ${errors} errors out of ${totalFiles} files.`);
-        } else {
-            setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
-            setTimeout(() => { setActiveJobs(prev => prev.filter(j => j.jobId !== batchId)); }, 5000);
-        }
+        }, 100);
 
     }, [currentPath]);
 
