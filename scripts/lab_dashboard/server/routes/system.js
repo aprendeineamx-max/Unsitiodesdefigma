@@ -82,6 +82,9 @@ module.exports = (dependencies) => {
 
     // POST /snapshot/create - Create a new VSS Snapshot of C:
     router.post('/snapshot/create', async (req, res) => {
+        if (process.platform !== 'win32') {
+            return res.status(400).json({ error: 'System Snapshots (VSS) are only supported on Windows Servers.' });
+        }
         const volume = req.body.volume || 'C:\\';
 
         const psScript = `
@@ -121,6 +124,9 @@ try {
 
     // POST /snapshot/delete - Delete a Snapshot by ID
     router.post('/snapshot/delete', async (req, res) => {
+        if (process.platform !== 'win32') {
+            return res.status(400).json({ error: 'System Snapshots (VSS) are only supported on Windows Servers.' });
+        }
         const { id } = req.body;
         if (!id) return res.status(400).json({ error: 'Snapshot ID is required' });
 

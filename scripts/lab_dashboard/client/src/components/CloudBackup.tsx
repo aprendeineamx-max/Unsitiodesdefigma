@@ -451,6 +451,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                 setMirrorMode={setMirrorMode}
                 setBrowserMode={setBrowserMode}
                 handleCreateVersionBackup={handleCreateVersionBackup}
+                onLocalUpload={onDrop}
             />
 
             {/* Main Area */}

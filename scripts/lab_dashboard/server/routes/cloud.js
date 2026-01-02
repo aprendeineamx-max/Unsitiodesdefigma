@@ -91,12 +91,32 @@ module.exports = (dependencies) => {
     });
 
     // --- FILE PREVIEW (NEW) ---
+
+    // Proxy S3 Stream to bypass CORS
+    router.get('/proxy', (req, res) => {
+        const key = req.query.key;
+        if (!key) return res.status(400).send('Key required');
+
+        try {
+            const stream = S3Service.getReadStream(key);
+            stream.on('error', (err) => {
+                if (err.code === 'NoSuchKey') return res.status(404).send('Not Found');
+                console.error('Proxy Stream Error:', err);
+                if (!res.headersSent) res.status(500).send('Stream Error');
+            });
+            stream.pipe(res);
+        } catch (err) {
+            res.status(500).send(err.message);
+        }
+    });
+
     router.get('/preview/:key(*)', async (req, res) => {
         try {
             const key = req.params.key;
             if (!key) return res.status(400).json({ error: 'Key required' });
 
-            const url = await S3Service.getSignedUrl(key);
+            // Use Proxy URL
+            const url = `/api/cloud/proxy?key=${encodeURIComponent(key)}`;
             res.json({ url });
         } catch (err) {
             console.error('Preview error:', err);

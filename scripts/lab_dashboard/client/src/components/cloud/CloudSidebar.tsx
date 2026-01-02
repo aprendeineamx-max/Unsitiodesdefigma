@@ -25,6 +25,7 @@ interface CloudSidebarProps {
     setMirrorMode: (mode: boolean) => void;
     setBrowserMode: (mode: 'file' | 'folder') => void;
     handleCreateVersionBackup: () => void;
+    onLocalUpload: (files: File[]) => void;
 }
 
 const CloudSidebar: React.FC<CloudSidebarProps> = ({
@@ -33,8 +34,17 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
     snapshot, handleCreateSnapshot, handleDeleteSnapshot,
     handleFullMirror, getRootProps, getInputProps,
     setShowSystemBrowser, setMirrorMode, setBrowserMode,
-    handleCreateVersionBackup
+    handleCreateVersionBackup, onLocalUpload
 }) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const folderInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            onLocalUpload(Array.from(e.target.files));
+        }
+    };
+
     return (
         <div className="w-64 border-r border-gray-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900/50">
             <div className="p-4">
@@ -45,14 +55,17 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
                 </button>
 
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                    <button onClick={() => { setBrowserMode('file'); setShowSystemBrowser(true); }} className="py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-xs hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex flex-col items-center justify-center gap-1">
+                    <button onClick={() => fileInputRef.current?.click()} className="py-2 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium text-xs hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors flex flex-col items-center justify-center gap-1">
                         <FileIcon className="w-4 h-4" />
-                        File Backup
+                        File Upload
                     </button>
-                    <button onClick={() => { setBrowserMode('folder'); setShowSystemBrowser(true); }} className="py-2 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl font-medium text-xs hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-colors flex flex-col items-center justify-center gap-1">
+                    <button onClick={() => folderInputRef.current?.click()} className="py-2 bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl font-medium text-xs hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-colors flex flex-col items-center justify-center gap-1">
                         <FolderIcon className="w-4 h-4" />
-                        Folder Zip
+                        Folder Upload
                     </button>
+                    {/* Hidden Native Inputs */}
+                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} multiple />
+                    <input type="file" ref={folderInputRef} className="hidden" onChange={handleFileChange} {...({ webkitdirectory: "", directory: "" } as any)} />
                 </div>
 
                 <div className="mt-2">
