@@ -154,6 +154,13 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             loadTreeData(currentPath);
         };
 
+        // V6: Real-time sync listener
+        const onCloudUpdate = (data: any) => {
+            console.log('[CloudBackup] Real-time update received:', data);
+            // Refresh the current folder view
+            loadTreeData(currentPath);
+        };
+
         socket.on('backup:progress', onProgress);
         socket.on('backup:complete', onComplete);
         socket.on('backup:error', onError);
@@ -161,6 +168,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         socket.on('file:uploaded', onFileUploaded);
         socket.on('cache:progress', onCacheProgress);
         socket.on('cache:ready', onCacheReady);
+        socket.on('cloud:update', onCloudUpdate); // V6
 
         return () => {
             socket.off('backup:progress', onProgress);
@@ -170,6 +178,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             socket.off('file:uploaded', onFileUploaded);
             socket.off('cache:progress', onCacheProgress);
             socket.off('cache:ready', onCacheReady);
+            socket.off('cloud:update', onCloudUpdate); // V6
         };
     }, [socket, currentPath, treeData]);
 
@@ -178,6 +187,16 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         checkConnection();
         loadTreeData(currentPath);
         loadPendingJobs();
+    }, [currentPath]);
+
+    // V6: Auto-refresh every 30 seconds to detect external changes
+    useEffect(() => {
+        const interval = setInterval(() => {
+            console.log('[CloudBackup] Auto-refresh triggered');
+            loadTreeData(currentPath);
+        }, 30000); // 30 seconds
+
+        return () => clearInterval(interval);
     }, [currentPath]);
 
     // --- Actions ---

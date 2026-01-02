@@ -13,7 +13,7 @@ class CloudCache {
             folderCounts: new Map()
         };
         this.dependencies = null;
-        this.CACHE_TTL_MS = 5 * 60 * 1000; // 5 mins
+        this.CACHE_TTL_MS = 60 * 60 * 1000; // 60 mins (V5: Instant Loading)
     }
 
     init(dependencies) {
@@ -209,6 +209,39 @@ class CloudCache {
             isComplete: !!this.cache.data
         };
     }
+
+    // V5: Real-time cache updates
+    addFile(fileObj) {
+        if (this.cache.data) {
+            // Check if already exists
+            const exists = this.cache.data.find(f => f.key === fileObj.key);
+            if (!exists) {
+                this.cache.data.push(fileObj);
+                console.log(`[CloudCache] Added file: ${fileObj.key}`);
+            }
+        }
+    }
+
+    removeFile(key) {
+        if (this.cache.data) {
+            const before = this.cache.data.length;
+            this.cache.data = this.cache.data.filter(f => f.key !== key);
+            if (this.cache.data.length < before) {
+                console.log(`[CloudCache] Removed file: ${key}`);
+            }
+        }
+    }
+
+    // V5: Get all files from cache (instant)
+    getCachedFiles() {
+        return this.cache.data || [];
+    }
+
+    // V5: Check if cache is ready
+    isReady() {
+        return !!this.cache.data && this.cache.data.length > 0;
+    }
 }
 
 module.exports = new CloudCache();
+

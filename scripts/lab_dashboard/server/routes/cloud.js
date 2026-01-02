@@ -12,11 +12,19 @@ const CloudCache = require('../services/CloudCache');
 const JobService = require('../services/JobService');
 
 module.exports = (dependencies) => {
-    const { LABS_DIR, broadcastLog, broadcastState } = dependencies;
+    const { LABS_DIR, broadcastLog, broadcastState, io } = dependencies;
 
     // Initialize Services with dependencies
     CloudCache.init(dependencies);
     JobService.init(dependencies);
+
+    // V6: Helper to emit real-time cloud updates
+    const emitCloudUpdate = (action, data) => {
+        if (io) {
+            io.emit('cloud:update', { action, ...data, timestamp: Date.now() });
+            console.log(`[CloudSync] Emitted cloud:update: ${action}`);
+        }
+    };
 
     // --- STATUS CHECK ---
     router.get('/status', async (req, res) => {
@@ -47,6 +55,65 @@ module.exports = (dependencies) => {
             const prefix = req.query.prefix || '';
             console.log(`[S3Tree] Listing level: "${prefix || 'ROOT'}"`);
 
+            // V5: Use cache-first approach for instant loading
+            if (CloudCache.isReady()) {
+                // Derive folders and files from cache
+                const allFiles = CloudCache.getCachedFiles();
+
+                // Find unique folders at this level
+                const folderSet = new Set();
+                const filesAtLevel = [];
+
+                for (const file of allFiles) {
+                    if (!file.key.startsWith(prefix)) continue;
+
+                    const relativePath = file.key.slice(prefix.length);
+                    const slashIndex = relativePath.indexOf('/');
+
+                    if (slashIndex === -1) {
+                        // Direct file at this level
+                        filesAtLevel.push(file);
+                    } else {
+                        // Subfolder
+                        const folderName = relativePath.slice(0, slashIndex);
+                        folderSet.add(folderName);
+                    }
+                }
+
+                // Build folders with stats
+                const folders = Array.from(folderSet).map(folderName => {
+                    const folderKey = prefix + folderName + '/';
+                    const stats = CloudCache.getFolderStats(folderKey);
+                    return {
+                        key: folderKey,
+                        name: folderName,
+                        type: 'folder',
+                        ...stats,
+                        isLoading: false,
+                        isComplete: true
+                    };
+                });
+
+                // Build files
+                const files = filesAtLevel.map(item => ({
+                    key: item.key,
+                    name: item.key.replace(prefix, ''),
+                    size: item.size,
+                    lastModified: item.lastModified,
+                    type: 'file',
+                    etag: item.etag
+                }));
+
+                return res.json({
+                    prefix,
+                    folders,
+                    files,
+                    cacheStatus: { ...CloudCache.getStatus(), instant: true }
+                });
+            }
+
+            // Fallback: Cache not ready, use S3 directly (slower)
+            console.log('[S3Tree] Cache not ready, falling back to S3...');
             const data = await S3Service.listObjects(prefix, '/');
 
             // Map Folders
@@ -171,6 +238,25 @@ module.exports = (dependencies) => {
                 broadcastLog('system', `✅ Batch Upload Success (${successful.length} files)`, 'success');
             }
 
+            // V5: Update cache in real-time
+            for (const item of successful) {
+                const file = req.files.find(f => f.originalname === item.name);
+                CloudCache.addFile({
+                    key: item.key,
+                    size: file ? file.size : 0,
+                    lastModified: new Date(),
+                    etag: ''
+                });
+            }
+
+            // V6: Emit real-time update to all connected clients
+            if (successful.length > 0) {
+                emitCloudUpdate('upload', {
+                    count: successful.length,
+                    keys: successful.map(s => s.key)
+                });
+            }
+
             res.json({
                 success: true,
                 total: req.files.length,
@@ -263,6 +349,10 @@ module.exports = (dependencies) => {
     router.post('/delete', async (req, res) => {
         try {
             await S3Service.deleteObject(req.body.key);
+            // V5: Update cache in real-time
+            CloudCache.removeFile(req.body.key);
+            // V6: Emit real-time update to all connected clients
+            emitCloudUpdate('delete', { key: req.body.key });
             broadcastLog('system', `🗑️ Deleted: ${req.body.key}`, 'warn');
             res.json({ success: true });
         } catch (err) {

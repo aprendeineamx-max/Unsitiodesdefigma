@@ -104,4 +104,10 @@ const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`LAB MANAGER API running on http://localhost:${PORT}`);
     console.log(`Modular architecture loaded successfully`);
+
+    // V5: Pre-warm CloudCache on startup for instant loading
+    const CloudCache = require('./services/CloudCache');
+    CloudCache.init(dependencies);
+    CloudCache.startBackgroundLoad();
+    console.log('[CloudCache] Pre-warming cache on startup...');
 });
