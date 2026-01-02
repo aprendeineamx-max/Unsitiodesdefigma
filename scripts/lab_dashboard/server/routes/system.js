@@ -154,6 +154,27 @@ try {
         }
     });
 
+    // GET /deploy-history - Read active version info
+    router.get('/deploy-history', (req, res) => {
+        const history = [];
+        try {
+            const versionPath = path.resolve(__dirname, '../../version.json');
+            if (fs.existsSync(versionPath)) {
+                // Read fresh every time
+                const ver = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+                history.push({
+                    timestamp: ver.buildDate,
+                    message: `Active Server Build (ID: ${ver.deployId})`
+                });
+            } else {
+                history.push({ timestamp: new Date().toISOString(), message: 'No Server Version Info (Dev/Legacy)' });
+            }
+        } catch (err) {
+            history.push({ timestamp: new Date().toISOString(), message: 'Error reading logs: ' + err.message });
+        }
+        res.json(history);
+    });
+
     // POST /deploy - Trigger Full Production Deployment
     router.post('/deploy', async (req, res) => {
         const deployScript = path.resolve(dependencies.PROJECT_ROOT || path.join(__dirname, '../../../'), 'scripts/deploy/full_deploy.js');

@@ -69,10 +69,7 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
                 </div>
 
                 <div className="mt-2">
-                    <button onClick={() => { setBrowserMode('folder'); setMirrorMode(true); setShowSystemBrowser(true); }} className="w-full py-2 bg-pink-100 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded-xl font-medium text-xs hover:bg-pink-200 dark:hover:bg-pink-900/40 transition-colors flex items-center justify-center gap-2" title="Recursively mirror a folder to Cloud">
-                        <Upload className="w-4 h-4" />
-                        Mirror Any Folder
-                    </button>
+                    {/* Mirror Disabled for Web */}
                 </div>
 
                 {versionId && (
@@ -96,8 +93,9 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
 
                 <div className="pt-4 pb-2"><div className="w-full border-t border-gray-200 dark:border-slate-800"></div></div>
 
-                <button onClick={() => setActiveTab('sync')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'sync' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>
-                    <Activity className="w-4 h-4" /> Real-Time Sync
+                {/* Sync Disabled for Web Logic */}
+                <button disabled className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 cursor-not-allowed bg-gray-50 dark:bg-slate-900`}>
+                    <Activity className="w-4 h-4" /> Real-Time Sync (Desktop Only)
                 </button>
 
                 <div className="pt-4 pb-2">

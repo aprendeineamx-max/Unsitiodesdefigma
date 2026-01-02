@@ -18,6 +18,7 @@ import { BrowserConsole } from './components/BrowserConsole';
 import { TrashView } from './components/TrashView';
 import { SettingsView } from './components/SettingsView';
 import { ArchiveView } from './components/ArchiveView';
+import FloatingOps from './components/FloatingOps';
 
 // Helper for classes
 function cn(...inputs: any[]) {
@@ -909,6 +910,7 @@ function App() {
                 </main>
 
             </div>
+            <FloatingOps />
         </div>
     );
 }

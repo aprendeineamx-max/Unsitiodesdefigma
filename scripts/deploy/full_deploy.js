@@ -2,6 +2,7 @@ const { Client } = require('ssh2');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+const crypto = require('crypto');
 
 // CONFIG
 const VPS_INFO_PATH = path.join(__dirname, 'vps_info.json');
@@ -19,6 +20,9 @@ async function main() {
     }
     const vps = JSON.parse(fs.readFileSync(VPS_INFO_PATH, 'utf8'));
     console.log(`🎯 Target: ${vps.main_ip} (root)`);
+
+    // 1.5 Generate Version
+    generateVersion();
 
     // 2. Archive Project
     console.log('📦 Archiving project...');
@@ -179,3 +183,27 @@ function deployRemote(conn) {
 }
 
 main();
+
+function generateVersion() {
+    const deployId = crypto.randomUUID().split('-')[0];
+    const versionData = {
+        deployId,
+        buildDate: new Date().toISOString(),
+        commit: 'latest'
+    };
+
+    // Write to Client Dist
+    const clientDist = path.join(ROOT_DIR, 'scripts/lab_dashboard/client/dist');
+    if (fs.existsSync(clientDist)) {
+        fs.writeFileSync(path.join(clientDist, 'version.json'), JSON.stringify(versionData, null, 2));
+    }
+
+    // Write to Server Dir
+    const serverDir = path.join(ROOT_DIR, 'scripts/lab_dashboard/server');
+    if (fs.existsSync(serverDir)) {
+        fs.writeFileSync(path.join(serverDir, 'version.json'), JSON.stringify(versionData, null, 2));
+    }
+
+    console.log(`🏷️  Version Generated: ${deployId}`);
+    return versionData;
+}
