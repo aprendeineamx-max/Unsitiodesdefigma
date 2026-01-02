@@ -266,12 +266,24 @@ module.exports = (dependencies) => {
             const data = await s3.listObjectsV2(params).promise();
 
             // Folders at this level (CommonPrefixes)
-            const folders = (data.CommonPrefixes || []).map(cp => ({
-                key: cp.Prefix,
-                name: cp.Prefix.replace(prefix, '').replace(/\/$/, ''),
-                type: 'folder',
-                isLoading: !filesCache.data // If full cache not ready, folder contents are "loading"
-            }));
+            const folders = (data.CommonPrefixes || []).map(cp => {
+                const folderKey = cp.Prefix;
+                const folderName = folderKey.replace(prefix, '').replace(/\/$/, '');
+                
+                // Calculate childCount from cache if available
+                let childCount = null;
+                if (filesCache.data) {
+                    childCount = filesCache.data.filter(f => f.key.startsWith(folderKey)).length;
+                }
+                
+                return {
+                    key: folderKey,
+                    name: folderName,
+                    type: 'folder',
+                    childCount: childCount,
+                    isLoading: !filesCache.data // If full cache not ready, folder contents are "loading"
+                };
+            });
 
             // Files at this level (Contents, excluding the prefix itself)
             const files = (data.Contents || [])

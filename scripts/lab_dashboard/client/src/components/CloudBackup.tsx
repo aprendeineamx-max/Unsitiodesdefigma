@@ -458,7 +458,8 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     type: 'folder',
                     key: folder.key,
                     name: folder.name,
-                    isLoading: !cacheReady // Show loading indicator if full cache not ready
+                    childCount: (folder as any).childCount, // From server cache
+                    isLoading: folder.isLoading // From server
                 });
             }
 
@@ -851,7 +852,11 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                             </div>
                                             <h4 className="font-medium text-gray-900 dark:text-white truncate text-sm mb-1" title={item.name}>{item.name}</h4>
                                             <p className="text-xs text-gray-500">
-                                                {item.type === 'folder' ? (item.isLoading ? 'Indexing...' : `${item.childCount || '?'} items`) : formatSize(item.size || 0)}
+                                                {item.type === 'folder'
+                                                    ? (item.childCount !== null && item.childCount !== undefined
+                                                        ? `${item.childCount.toLocaleString()} items`
+                                                        : (item.isLoading ? 'Loading...' : 'Folder'))
+                                                    : formatSize(item.size || 0)}
                                             </p>
                                             {item.type === 'file' && (
                                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4 bg-white dark:bg-slate-800 shadow-lg p-1 rounded-lg border border-gray-100 dark:border-slate-700">
@@ -892,7 +897,11 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                                                     {item.name}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    {item.type === 'folder' ? `${item.childCount} items` : formatSize(item.size || 0)}
+                                                    {item.type === 'folder'
+                                                        ? (item.childCount !== null && item.childCount !== undefined
+                                                            ? `${item.childCount.toLocaleString()} items`
+                                                            : (item.isLoading ? 'Loading...' : 'Folder'))
+                                                        : formatSize(item.size || 0)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {item.type === 'file' && item.lastModified ? new Date(item.lastModified).toLocaleDateString() : '-'}
