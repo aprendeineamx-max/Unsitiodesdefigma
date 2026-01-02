@@ -110,4 +110,10 @@ server.listen(PORT, '0.0.0.0', () => {
     CloudCache.init(dependencies);
     CloudCache.startBackgroundLoad();
     console.log('[CloudCache] Pre-warming cache on startup...');
+
+    // V9: Mount Manager (Native Rclone)
+    const MountManager = require('./services/MountManager');
+    if (MountManager.init(dependencies)) {
+        MountManager.mount();
+    }
 });

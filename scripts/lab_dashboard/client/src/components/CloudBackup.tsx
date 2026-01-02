@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone';
 // Components
 import { SystemBrowser } from './SystemBrowser';
 import { SyncManager } from './SyncManager';
+import { SystemOps } from './SystemOps';
 import CloudSidebar from './cloud/CloudSidebar';
 import CloudFileList from './cloud/CloudFileList';
 import CloudTransferPanel from './cloud/CloudTransferPanel';
@@ -38,6 +39,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
     const [activeTab, setActiveTab] = useState<'drive' | 'sync'>('drive');
     const [panelMinimized, setPanelMinimized] = useState(false);
     const [showResumeBar, setShowResumeBar] = useState(true);
+    const [showOps, setShowOps] = useState(false);
 
     // Feature State
     const [snapshot, setSnapshot] = useState<{ id: string; path: string } | null>(null);
@@ -578,6 +580,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                 setBrowserMode={setBrowserMode}
                 handleCreateVersionBackup={handleCreateVersionBackup}
                 onLocalUpload={onDrop}
+                onToggleOps={() => setShowOps(true)}
             />
 
             {/* Main Area */}
@@ -606,6 +609,9 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
                     handleImport={handleImportToWorkspace}
                 />
             )}
+
+            {/* System Ops Console */}
+            {showOps && <SystemOps onClose={() => setShowOps(false)} />}
         </div>
     );
 };

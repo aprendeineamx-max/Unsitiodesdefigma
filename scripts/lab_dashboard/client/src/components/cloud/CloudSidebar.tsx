@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Plus, File as FileIcon, Folder as FolderIcon, Upload,
-    Cloud, HardDrive, Activity, Check
+    Cloud, HardDrive, Activity, Check, Terminal
 } from 'lucide-react';
 import { DropzoneRootProps, DropzoneInputProps } from 'react-dropzone';
 
@@ -26,6 +26,7 @@ interface CloudSidebarProps {
     setBrowserMode: (mode: 'file' | 'folder') => void;
     handleCreateVersionBackup: () => void;
     onLocalUpload: (files: File[]) => void;
+    onToggleOps: () => void;
 }
 
 const CloudSidebar: React.FC<CloudSidebarProps> = ({
@@ -34,7 +35,7 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
     snapshot, handleCreateSnapshot, handleDeleteSnapshot,
     handleFullMirror, getRootProps, getInputProps,
     setShowSystemBrowser, setMirrorMode, setBrowserMode,
-    handleCreateVersionBackup, onLocalUpload
+    handleCreateVersionBackup, onLocalUpload, onToggleOps
 }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const folderInputRef = React.useRef<HTMLInputElement>(null);
@@ -139,6 +140,11 @@ const CloudSidebar: React.FC<CloudSidebarProps> = ({
             </nav>
 
             <div className="p-4 border-t border-gray-200 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-4">
+                    <button onClick={onToggleOps} className="flex items-center gap-2 text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline">
+                        <Terminal className="w-3 h-3" /> System Ops
+                    </button>
+                </div>
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-gray-500">Storage Used <span className="ml-1 px-1 bg-green-100 text-green-700 rounded text-[10px]">v3.1</span></span>
                     <span className="text-xs text-gray-400">{storageInfo.used.toFixed(1)}MB / 1TB Plan</span>
