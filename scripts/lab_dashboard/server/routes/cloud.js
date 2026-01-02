@@ -124,6 +124,67 @@ module.exports = (dependencies) => {
         }
     });
 
+    // --- BATCH UPLOAD (V4 Performance) ---
+    router.post('/upload/batch', dependencies.multer().array('files'), async (req, res) => {
+        if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+
+        try {
+            // Paths is sent as a JSON string array paralleling the files array
+            const paths = req.body.paths ? JSON.parse(req.body.paths) : [];
+            const batchId = req.body.batchId || 'batch-' + Date.now();
+
+            broadcastLog('system', `☁️ Batch Upload: Processing ${req.files.length} files...`, 'info');
+
+            const uploadPromises = req.files.map((file, index) => {
+                let s3Key;
+                // Use provided path or fallback
+                if (paths[index]) {
+                    const safePath = paths[index].replace(/\.\./g, '').replace(/^\//, '');
+                    s3Key = `lab-backups/uploads/${safePath}`;
+                } else {
+                    s3Key = `lab-backups/uploads/${Date.now()}_${file.originalname}`;
+                }
+
+                return S3Service.uploadBuffer(s3Key, file.buffer, file.mimetype, {
+                    originalName: file.originalname,
+                    uploadDate: new Date().toISOString(),
+                    batchId
+                }).then(result => ({
+                    status: 'fulfilled',
+                    name: file.originalname,
+                    key: s3Key
+                })).catch(err => ({
+                    status: 'rejected',
+                    name: file.originalname,
+                    error: err.message
+                }));
+            });
+
+            const results = await Promise.all(uploadPromises);
+            const successful = results.filter(r => r.status === 'fulfilled');
+            const failed = results.filter(r => r.status === 'rejected');
+
+            if (failed.length > 0) {
+                console.error('Batch Partial Failures:', failed);
+                broadcastLog('system', `⚠️ Batch completed with ${failed.length} errors.`, 'warn');
+            } else {
+                broadcastLog('system', `✅ Batch Upload Success (${successful.length} files)`, 'success');
+            }
+
+            res.json({
+                success: true,
+                total: req.files.length,
+                uploaded: successful.length,
+                failed: failed.length,
+                errors: failed.map(f => ({ name: f.name, error: f.error }))
+            });
+
+        } catch (err) {
+            console.error('Batch Upload Critical Error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     // --- UPLOAD & BACKUP ---
     router.post('/upload', dependencies.multer().single('file'), async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });

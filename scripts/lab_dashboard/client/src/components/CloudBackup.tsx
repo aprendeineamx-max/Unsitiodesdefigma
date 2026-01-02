@@ -172,16 +172,6 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             socket.off('cache:ready', onCacheReady);
         };
     }, [socket, currentPath, treeData]);
-
-    // Load Data
-    useEffect(() => {
-        checkConnection();
-        loadTreeData(currentPath);
-        loadPendingJobs();
-    }, [versionId, currentPath]);
-
-    // --- Actions ---
-
     const loadPendingJobs = async () => {
         try {
             const res = await axios.get('/api/cloud/jobs/pending');
@@ -248,13 +238,13 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         if (acceptedFiles.length === 0) return;
 
         setUploading(true);
-        const batchId = `local-${Date.now()}`;
+        const batchId = `batch-${Date.now()}`;
         const totalFiles = acceptedFiles.length;
 
-        // Create virtual job for UI feedback
+        // UI Feedback
         setActiveJobs(prev => [...prev, {
             jobId: batchId,
-            target: totalFiles > 1 ? `Folder Upload (${totalFiles} files)` : acceptedFiles[0].name,
+            target: totalFiles > 1 ? `Batch Upload (${totalFiles} files)` : acceptedFiles[0].name,
             filesUploaded: 0,
             bytesUploaded: 0,
             currentFile: 'Starting...',
@@ -263,63 +253,72 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
         let completed = 0;
         let errors = 0;
+        const BATCH_SIZE = 50;
 
-        // Concurrency Limit (Prevents browser freeze)
-        const CONCURRENCY = 5;
-        const queue = [...acceptedFiles];
-        const workers = [];
+        // Create Chunks
+        const chunks: File[][] = [];
+        for (let i = 0; i < acceptedFiles.length; i += BATCH_SIZE) {
+            chunks.push(acceptedFiles.slice(i, i + BATCH_SIZE));
+        }
 
-        const processFile = async (file: File) => {
+        const processChunk = async (chunk: File[]) => {
             const formData = new FormData();
-            // Important: Append text fields FIRST so multer sees them before file stream
-            // 'webkitRelativePath' preserves folder structure
-            const relPath = (file as any).webkitRelativePath;
-            if (relPath) {
-                formData.append('relativePath', relPath);
-            }
+            const paths: string[] = [];
+
             formData.append('batchId', batchId);
-            formData.append('file', file);
+
+            chunk.forEach(file => {
+                const relPath = (file as any).webkitRelativePath;
+                // If relPath exists but we are at root, it's just folder/file. 
+                // If it's empty (single file drag), use name.
+                paths.push(relPath || file.name);
+                formData.append('files', file);
+            });
+
+            // Send structural data
+            formData.append('paths', JSON.stringify(paths));
 
             try {
-                await axios.post('/api/cloud/upload', formData);
-                completed++;
+                const res = await axios.post('/api/cloud/upload/batch', formData);
 
-                // Update Job Progress (throttled slightly by React)
+                completed += (res.data.uploaded || chunk.length);
+                errors += (res.data.failed || 0);
+
+                // Update UI
                 setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
                     ...j,
                     filesUploaded: completed,
-                    currentFile: file.name
+                    currentFile: `Uploading batch... (${completed}/${totalFiles})`
                 } : j));
 
             } catch (err) {
-                console.error(`Failed ${file.name}`, err);
-                errors++;
+                console.error('Batch Failed', err);
+                errors += chunk.length;
             }
         };
+
+        // Concurrency Limit (2 chunks = 100 files parallel net ops)
+        const CONCURRENCY = 2;
+        const queue = [...chunks];
+        const workers = [];
 
         const next = async () => {
             while (queue.length > 0) {
-                const file = queue.shift();
-                if (file) await processFile(file);
+                const chunk = queue.shift();
+                if (chunk) await processChunk(chunk);
             }
         };
 
-        // Start concurrent workers
         for (let i = 0; i < CONCURRENCY; i++) workers.push(next());
         await Promise.all(workers);
 
         setUploading(false);
         loadTreeData(currentPath);
 
-        // Mark job complete in UI
         setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
+        setTimeout(() => { setActiveJobs(prev => prev.filter(j => j.jobId !== batchId)); }, 5000);
 
-        // Remove job after delay
-        setTimeout(() => {
-            setActiveJobs(prev => prev.filter(j => j.jobId !== batchId));
-        }, 5000);
-
-        if (errors > 0) alert(`Upload completed with ${errors} errors.`);
+        if (errors > 0) alert(`Upload finished with ${errors} errors.`);
 
     }, [currentPath]);
 
