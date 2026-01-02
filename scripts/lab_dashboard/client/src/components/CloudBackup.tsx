@@ -172,6 +172,16 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             socket.off('cache:ready', onCacheReady);
         };
     }, [socket, currentPath, treeData]);
+
+    // Load Data on mount and when path changes
+    useEffect(() => {
+        checkConnection();
+        loadTreeData(currentPath);
+        loadPendingJobs();
+    }, [currentPath]);
+
+    // --- Actions ---
+
     const loadPendingJobs = async () => {
         try {
             const res = await axios.get('/api/cloud/jobs/pending');
