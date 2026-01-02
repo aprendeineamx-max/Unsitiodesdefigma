@@ -253,7 +253,7 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
 
         let completed = 0;
         let errors = 0;
-        const BATCH_SIZE = 50;
+        const BATCH_SIZE = 20; // V4.1: Reduced for stability
 
         // Create Chunks
         const chunks: File[][] = [];
@@ -297,10 +297,10 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
             }
         };
 
-        // Concurrency Limit (2 chunks = 100 files parallel net ops)
+        // Concurrency Limit (2 chunks = 40 files parallel net ops)
         const CONCURRENCY = 2;
         const queue = [...chunks];
-        const workers = [];
+        const workers: Promise<void>[] = [];
 
         const next = async () => {
             while (queue.length > 0) {
@@ -315,10 +315,18 @@ export const CloudBackup: React.FC<CloudBackupProps> = ({ versionId, versions })
         setUploading(false);
         loadTreeData(currentPath);
 
-        setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
-        setTimeout(() => { setActiveJobs(prev => prev.filter(j => j.jobId !== batchId)); }, 5000);
-
-        if (errors > 0) alert(`Upload finished with ${errors} errors.`);
+        // V4.1: Persist error state - do not auto-clear if errors occurred
+        if (errors > 0) {
+            setActiveJobs(prev => prev.map(j => j.jobId === batchId ? {
+                ...j,
+                status: 'error',
+                currentFile: `Failed: ${errors} files. Click X to dismiss.`
+            } : j));
+            alert(`Upload finished with ${errors} errors out of ${totalFiles} files.`);
+        } else {
+            setActiveJobs(prev => prev.map(j => j.jobId === batchId ? { ...j, status: 'completed' } : j));
+            setTimeout(() => { setActiveJobs(prev => prev.filter(j => j.jobId !== batchId)); }, 5000);
+        }
 
     }, [currentPath]);
 
