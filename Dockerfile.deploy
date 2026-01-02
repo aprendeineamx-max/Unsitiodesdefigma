@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# --- BACKEND (Node.js API) ---
+FROM node:20-alpine AS backend-runner
+WORKDIR /app/server
+# Copy only backend files
+COPY scripts/lab_dashboard/server/package*.json ./
+RUN npm install --legacy-peer-deps --production
+
+COPY scripts/lab_dashboard/server ./
+WORKDIR /app/server
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+# --- FRONTEND (Nginx) ---
+FROM nginx:alpine AS frontend-nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+# Copy built static files DIRECTLY from the bundle (pre-built locally)
+# The bundle structure will be: /app/scripts/lab_dashboard/client/dist
+COPY scripts/lab_dashboard/client/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

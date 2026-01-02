@@ -30,11 +30,10 @@ async function main() {
     conn.on('ready', () => {
         console.log('🔌 SSH Connected!');
 
-        // Sequence: Install Docker -> Upload -> Unzip -> Deploy
-        installDocker(conn, () => {
-            uploadBundle(conn, path.join(ROOT_DIR, BUNDLE_NAME), () => {
-                deployRemote(conn);
-            });
+        // Sequence: Upload -> Unzip -> Deploy
+        console.log('⚡ Skipping Docker Check for speed.');
+        uploadBundle(conn, path.join(ROOT_DIR, BUNDLE_NAME), () => {
+            deployRemote(conn);
         });
     }).connect({
         host: vps.main_ip,
@@ -47,34 +46,58 @@ async function main() {
 
 function createBundle(outputPath) {
     return new Promise((resolve, reject) => {
+        console.log('   - Creating write stream...');
         const output = fs.createWriteStream(outputPath);
         const archive = archiver('tar', { gzip: true });
 
         output.on('close', () => {
-            console.log(`📦 Bundle created: ${archive.pointer()} total bytes`);
+            console.log(`\n📦 Bundle created: ${archive.pointer()} total bytes`);
             resolve();
         });
-        archive.on('error', (err) => reject(err));
+
+        archive.on('warning', (err) => {
+            if (err.code === 'ENOENT') console.warn('   ! Warning:', err);
+            else reject(err);
+        });
+
+        archive.on('error', (err) => {
+            console.error('   ! Archiver Error:', err);
+            reject(err);
+        });
+
         archive.pipe(output);
 
+        console.log('   - Adding files...');
+
         // FILES TO INCLUDE
-        // Docker config
-        archive.file(path.join(ROOT_DIR, 'Dockerfile'), { name: 'Dockerfile' });
-        archive.file(path.join(ROOT_DIR, 'docker-compose.prod.yml'), { name: 'docker-compose.yml' }); // Rename to default
+        console.log('   - Adding Dockerfile (Optimized)...');
+        if (fs.existsSync(path.join(ROOT_DIR, 'Dockerfile.deploy'))) {
+            archive.file(path.join(ROOT_DIR, 'Dockerfile.deploy'), { name: 'Dockerfile' });
+        } else {
+            console.warn('   ! Dockerfile.deploy not found, falling back to Dockerfile');
+            archive.file(path.join(ROOT_DIR, 'Dockerfile'), { name: 'Dockerfile' });
+        }
+
+        archive.file(path.join(ROOT_DIR, 'docker-compose.prod.yml'), { name: 'docker-compose.yml' });
         archive.file(path.join(ROOT_DIR, 'nginx.conf'), { name: 'nginx.conf' });
 
-        // Code (Backend) - Exclude node_modules
+        console.log('   - Adding Backend dir...');
         archive.directory(path.join(ROOT_DIR, 'scripts/lab_dashboard/server'), 'scripts/lab_dashboard/server', (entry) => {
             return entry.name.includes('node_modules') ? false : entry;
         });
 
-        // Code (Frontend) - Exclude node_modules & dist (will build on server)
+        console.log('   - Adding Frontend dir (including dist)...');
+        const distPath = path.join(ROOT_DIR, 'scripts/lab_dashboard/client/dist');
+        if (!fs.existsSync(distPath)) {
+            throw new Error('CLIENT DIST MISSING! Run "npm run build" in client first.');
+        }
+
         archive.directory(path.join(ROOT_DIR, 'scripts/lab_dashboard/client'), 'scripts/lab_dashboard/client', (entry) => {
             if (entry.name.includes('node_modules')) return false;
-            // if (entry.name.includes('dist')) return false; // Maybe keep dist if built? No, Docker builds it.
             return entry;
         });
 
+        console.log('   - Finalizing archive...');
         archive.finalize();
     });
 }
@@ -131,12 +154,16 @@ function deployRemote(conn) {
         echo "Extracting..."
         tar -xzf ${BUNDLE_NAME}
         
-        echo "Updating .env..."
-        # Inject ENV vars if needed, or use default from file?
-        # docker-compose.prod.yml expects VULTR_... env vars.
-        # We can write a .env file here.
-        
+        echo "Configuring Environment..."
+        if [ -f scripts/lab_dashboard/server/.env ]; then
+            cp scripts/lab_dashboard/server/.env .env
+            echo "✅ .env found and copied to root."
+        else
+            echo "⚠️  WARNING: .env not found in bundle!"
+        fi
+
         echo "Building & Starting Containers..."
+        docker-compose down --remove-orphans || true
         docker-compose up -d --build
     `;
 

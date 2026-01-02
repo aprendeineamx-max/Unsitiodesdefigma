@@ -6,8 +6,14 @@ const { exec } = require('child_process');
 
 module.exports = (dependencies) => {
 
-    // GET /drives - List available drives (Windows)
+    // GET /drives - List available drives (Windows/Linux)
     router.get('/drives', async (req, res) => {
+        // Linux/Mac Support (Docker Container)
+        if (process.platform !== 'win32') {
+            return res.json(['/']);
+        }
+
+        // Windows Support
         exec('powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Name"', (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`);
@@ -170,4 +176,5 @@ try {
             dependencies.io.emit('deploy-status', { status: code === 0 ? 'success' : 'error' });
         });
     });
+    return router;
 };

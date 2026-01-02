@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Download, Loader2, FileText, ExternalLink } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+
 
 interface FilePreviewModalProps {
     isOpen: boolean;
@@ -82,22 +81,22 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ isOpen, onClose, fi
     if (!isOpen) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-5xl h-[85vh] flex flex-col bg-[#1e1e1e] border-[#333] text-white p-0">
-                <DialogHeader className="px-6 py-4 border-b border-[#333] flex flex-row items-center justify-between shrink-0">
-                    <DialogTitle className="truncate pr-8">{fileName}</DialogTitle>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+            <div className="relative w-full max-w-5xl h-[85vh] flex flex-col bg-[#1e1e1e] border border-[#333] rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-[#333] flex flex-row items-center justify-between shrink-0 bg-[#1e1e1e]">
+                    <h2 className="text-lg font-semibold text-white truncate pr-8">{fileName}</h2>
                     <div className="flex items-center gap-2">
                         {previewUrl && (
-                            <Button variant="ghost" size="sm" onClick={handleDownload} className="text-gray-400 hover:text-white">
+                            <button onClick={handleDownload} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-400 hover:text-white transition-colors hover:bg-white/10 rounded-md">
                                 <Download className="w-4 h-4 mr-2" />
                                 Download
-                            </Button>
+                            </button>
                         )}
-                        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-[#333]">
+                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                             <X className="w-5 h-5" />
-                        </Button>
+                        </button>
                     </div>
-                </DialogHeader>
+                </div>
 
                 <div className="flex-1 overflow-hidden relative bg-[#0f0f0f] flex items-center justify-center">
                     {loading ? (
@@ -109,9 +108,9 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ isOpen, onClose, fi
                         <div className="text-red-400 text-center p-4">
                             <p className="mb-2">⚠️ {error}</p>
                             {previewUrl && (
-                                <Button onClick={handleDownload} variant="outline" className="mt-4 border-[#333]">
+                                <button onClick={handleDownload} className="mt-4 px-4 py-2 border border-[#333] rounded hover:bg-[#333] text-white transition-colors">
                                     Download to View
-                                </Button>
+                                </button>
                             )}
                         </div>
                     ) : (
@@ -143,16 +142,16 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ isOpen, onClose, fi
                                 <div className="text-center text-gray-400">
                                     <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
                                     <p className="mb-4">Preview not available for this file type.</p>
-                                    <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700">
+                                    <button onClick={handleDownload} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">
                                         Download File
-                                    </Button>
+                                    </button>
                                 </div>
                             )}
                         </>
                     )}
                 </div>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </div>
     );
 };
 
