@@ -21,6 +21,8 @@ services:
       - ./server/logs:/app/logs
       # Mount point mapping (optional, but lets host see the mount too if propagation is set)
       - /mnt/cloud_shared:/mnt/cloud:rshared
+      # CRITICAL: Mount Frontend Build manually because context is ./server
+      - ./client/dist:/client/dist
 
     # CRITICAL FOR RCLONE MOUNT
     cap_add:
