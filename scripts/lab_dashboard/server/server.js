@@ -83,6 +83,7 @@ app.use('/api/snapshots', require('./routes/snapshots')(dependencies));
 app.use('/api/config', require('./routes/config')(dependencies));
 app.use('/api/cloud', require('./routes/cloud')(dependencies));
 app.use('/api/system', require('./routes/system')(dependencies));
+app.use('/api/cloudflare', require('./routes/cloudflare'));
 app.use('/api/sync', require('./routes/sync'));
 
 // Serve Frontend (Production Build)

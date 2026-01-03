@@ -19,6 +19,7 @@ const FloatingOps: React.FC = () => {
     const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
     const [deployHistory, setDeployHistory] = useState<DeployLog[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [purgingCloudflare, setPurgingCloudflare] = useState(false);
 
     useEffect(() => {
         // Fetch Static Build Info
@@ -52,6 +53,24 @@ const FloatingOps: React.FC = () => {
             for (let name of names) caches.delete(name);
         });
         window.location.reload();
+    };
+
+    const handlePurgeCloudflare = async () => {
+        if (!confirm('¿Purgar TODO el caché de Cloudflare? Esto forzará la descarga de TODOS los recursos estáticos.')) return;
+        setPurgingCloudflare(true);
+        try {
+            const res = await axios.post('/api/cloudflare/purge');
+            if (res.data.success) {
+                alert('✅ Caché de Cloudflare purgado. Recargar la página en 3 segundos...');
+                setTimeout(() => window.location.reload(), 3000);
+            } else {
+                alert('❌ Error: ' + (res.data.error || 'Unknown error'));
+            }
+        } catch (err: any) {
+            alert('❌ Error al purgar Cloudflare: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setPurgingCloudflare(false);
+        }
     };
 
     const toggleOpen = () => {
@@ -117,6 +136,14 @@ const FloatingOps: React.FC = () => {
 
                     {/* Actions */}
                     <div className="space-y-2">
+                        <button
+                            onClick={handlePurgeCloudflare}
+                            disabled={purgingCloudflare}
+                            className="w-full py-2 bg-orange-900/30 hover:bg-orange-900/50 border border-orange-800 text-orange-200 rounded flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <RefreshCcw className={`w-3 h-3 ${purgingCloudflare ? 'animate-spin' : ''}`} />
+                            {purgingCloudflare ? 'Purgando...' : '🔥 Purge Cloudflare Cache'}
+                        </button>
                         <button
                             onClick={handleHardReload}
                             className="w-full py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-800 text-red-200 rounded flex items-center justify-center gap-2 transition-colors"
